@@ -252,21 +252,41 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       // Buildings
       renderState.buildings.forEach((b) => {
         const buildingSize = 36;
+        const buildingIcons: Record<string, string> = {
+          townCenter: '🏛️',
+          house: '🏠',
+          farm: '🌾',
+          mine: '⛏️',
+          lumber_camp: '🪵',
+          mill: '🌾',
+          barracks: '⚔️',
+        };
+        const isSelected = renderState.selectedIds.includes(b.id);
         ctx.save();
-        if (b.owner === 'player') {
-          ctx.shadowColor = '#b91c1c';
+        if (isSelected) {
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 15;
+        } else if (b.owner === 'player') {
+          ctx.shadowColor = '#1e40af';
           ctx.shadowBlur = 8;
         }
-        ctx.fillStyle = b.owner === 'player' ? '#b91c1c' : '#64748b';
+        ctx.fillStyle = b.owner === 'player' ? '#1e40af' : '#991b1b';
         ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = b.owner === 'player' ? '#fecaca' : '#cbd5e1';
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.strokeStyle = isSelected ? '#fbbf24' : b.owner === 'player' ? '#60a5fa' : '#f87171';
         ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
         ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);
+
         const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
         ctx.fillStyle = '#7f1d1d';
         ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 4);
-        ctx.fillStyle = '#22c55e';
+        ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
         ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 4);
         ctx.restore();
       });
@@ -296,16 +316,30 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.shadowColor = u.owner === 'player' ? '#fde047' : '#fb923c';
         ctx.shadowBlur = 6;
         ctx.translate(u.position.x + 16, u.position.y + 16);
-        if (!anim.facingRight) ctx.scale(-1, 1);
+        if (u.target || (u.path && u.pathIndex !== undefined && u.path[u.pathIndex])) {
+          const lookAt = u.target ?? u.path?.[u.pathIndex ?? 0] ?? u.position;
+          const angle = Math.atan2(lookAt.y - u.position.y, lookAt.x - u.position.x);
+          ctx.rotate(angle);
+        }
         const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
         const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
         ctx.translate(lungeX, bobY);
-        const unitSize = 20;
-        ctx.fillStyle = u.owner === 'player' ? '#fde047' : '#fb923c';
-        ctx.fillRect(-unitSize / 2, -unitSize / 2, unitSize, unitSize);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = u.owner === 'player' ? '#fef9c3' : '#ffedd5';
-        ctx.strokeRect(-unitSize / 2, -unitSize / 2, unitSize, unitSize);
+        const unitSize = 32;
+        ctx.beginPath();
+        ctx.arc(0, 0, unitSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = u.owner === 'player' ? '#3b82f6' : '#ef4444';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = u.owner === 'player' ? '#93c5fd' : '#fca5a5';
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(unitSize / 2 - 2, -4);
+        ctx.lineTo(unitSize / 2 + 4, 0);
+        ctx.lineTo(unitSize / 2 - 2, 4);
+        ctx.closePath();
+        ctx.fill();
         if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2;
@@ -316,9 +350,9 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.restore();
         const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
         ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(u.position.x + 4, u.position.y - 6, 24, 3);
+        ctx.fillRect(u.position.x, u.position.y - 7, 32, 4);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(u.position.x + 4, u.position.y - 6, 24 * hpPct, 3);
+        ctx.fillRect(u.position.x, u.position.y - 7, 32 * hpPct, 4);
       });
       const activeIds = new Set(renderState.units.map((u) => u.id));
       for (const key of unitAnimations.keys()) {
