@@ -48,8 +48,6 @@ export function HUD() {
   const villagerCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player' && u.type === 'villager').length);
   const hasLumberCamp = useGameStore((s) => s.buildings.some((b) => b.owner === 'player' && b.type === 'lumber_camp'));
   const hasMine = useGameStore((s) => s.buildings.some((b) => b.owner === 'player' && b.type === 'mine'));
-  const farmCount = useGameStore((s) => s.buildings.filter((b) => b.owner === 'player' && b.type === 'farm').length);
-  const mineCount = useGameStore((s) => s.buildings.filter((b) => b.owner === 'player' && b.type === 'mine').length);
   const woodGatherers = hasLumberCamp ? Math.max(1, Math.floor(villagerCount * 0.35)) : 0;
   const goldGatherers = hasMine ? Math.max(1, Math.floor(villagerCount * 0.3)) : 0;
   const stoneGatherers = hasMine ? Math.max(0, Math.floor(villagerCount * 0.2)) : 0;

@@ -212,7 +212,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       const renderState = useGameStore.getState();
       const camera = renderState.camera;
       const shake = renderState.cameraShake.offset;
-      ctx.fillStyle = '#111827';
+      ctx.fillStyle = '#1e293b';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
@@ -252,16 +252,23 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       // Buildings
       renderState.buildings.forEach((b) => {
         const buildingSize = 36;
+        ctx.save();
+        if (b.owner === 'player') {
+          ctx.shadowColor = '#b91c1c';
+          ctx.shadowBlur = 8;
+        }
         ctx.fillStyle = b.owner === 'player' ? '#b91c1c' : '#64748b';
         ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
         ctx.lineWidth = 2;
         ctx.strokeStyle = b.owner === 'player' ? '#fecaca' : '#cbd5e1';
         ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
+        ctx.shadowBlur = 0;
         const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
         ctx.fillStyle = '#7f1d1d';
         ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 4);
         ctx.fillStyle = '#22c55e';
         ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 4);
+        ctx.restore();
       });
 
       // Units
@@ -286,6 +293,8 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         }
 
         ctx.save();
+        ctx.shadowColor = u.owner === 'player' ? '#fde047' : '#fb923c';
+        ctx.shadowBlur = 6;
         ctx.translate(u.position.x + 16, u.position.y + 16);
         if (!anim.facingRight) ctx.scale(-1, 1);
         const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
@@ -321,7 +330,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         for (let tx = 0; tx < renderState.fog.width; tx++) {
           const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
           if (tile === 2) continue;
-          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.30)' : 'rgba(0,0,0,0.65)';
+          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.50)';
           ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
         }
       }
