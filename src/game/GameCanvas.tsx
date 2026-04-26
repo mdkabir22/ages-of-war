@@ -217,6 +217,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
       ctx.save();
       ctx.translate(-camera.x + shake.x, -camera.y + shake.y);
+      ctx.filter = 'brightness(1.12) contrast(1.08)';
 
       // Terrain (viewport culled)
       const terrain = renderState.terrain;
@@ -364,10 +365,11 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         for (let tx = 0; tx < renderState.fog.width; tx++) {
           const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
           if (tile === 2) continue;
-          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.50)';
+          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.00)' : 'rgba(0,0,0,0.35)';
           ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
         }
       }
+      ctx.filter = 'none';
       ctx.restore();
 
       if (isSelecting) {

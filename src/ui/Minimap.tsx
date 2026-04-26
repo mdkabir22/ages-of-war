@@ -3,8 +3,8 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, TERRAIN_COLORS } from '../engine/map';
 import { useGameStore } from '../engine/state';
 
-const MINIMAP_WIDTH = 200;
-const MINIMAP_HEIGHT = 150;
+const MINIMAP_WIDTH = 240;
+const MINIMAP_HEIGHT = 180;
 
 export function Minimap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -84,13 +84,13 @@ export function Minimap() {
   };
 
   return (
-    <div className="fixed bottom-4 left-4 z-20 pointer-events-auto bg-black/70 border border-white/30 rounded p-2">
+    <div className="fixed bottom-4 left-4 z-20 pointer-events-auto bg-black/75 border border-white/30 rounded-lg p-2">
       <canvas
         ref={canvasRef}
         width={MINIMAP_WIDTH}
         height={MINIMAP_HEIGHT}
         onClick={handleClick}
-        className="block cursor-pointer"
+        className="block cursor-pointer brightness-125 contrast-110"
       />
     </div>
   );

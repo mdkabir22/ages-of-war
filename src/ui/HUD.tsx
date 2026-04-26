@@ -14,7 +14,6 @@ export function HUD() {
     missionStatus,
     wavesSurvived,
     missionElapsedSec,
-    aiPlan,
   } = useGameStore();
   const selectedBuilding = selectedIds.length > 0
     ? buildings.find((b) => b.id === selectedIds[0])
@@ -45,14 +44,8 @@ export function HUD() {
     populationUsed < populationCap;
   const economyProgress = Math.min(1000, resources.gold);
   const timeLeft = Math.max(0, 300 - missionElapsedSec);
-  const villagerCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player' && u.type === 'villager').length);
-  const hasLumberCamp = useGameStore((s) => s.buildings.some((b) => b.owner === 'player' && b.type === 'lumber_camp'));
-  const hasMine = useGameStore((s) => s.buildings.some((b) => b.owner === 'player' && b.type === 'mine'));
-  const woodGatherers = hasLumberCamp ? Math.max(1, Math.floor(villagerCount * 0.35)) : 0;
-  const goldGatherers = hasMine ? Math.max(1, Math.floor(villagerCount * 0.3)) : 0;
-  const stoneGatherers = hasMine ? Math.max(0, Math.floor(villagerCount * 0.2)) : 0;
-  const foodGatherers = Math.max(0, villagerCount - woodGatherers - goldGatherers - stoneGatherers);
-  const populationPct = populationCap > 0 ? Math.min(100, (populationUsed / populationCap) * 100) : 0;
+  const elapsedMin = Math.floor(missionElapsedSec / 60);
+  const elapsedSec = missionElapsedSec % 60;
 
   let missionProgressText = mission.description;
   if (mission.type === 'survival') {
@@ -68,8 +61,9 @@ export function HUD() {
 
   return (
     <div className="fixed inset-0 z-10 text-white font-mono pointer-events-none text-[13px] leading-tight sm:text-sm">
-      <div className="absolute top-2 right-2 bg-black/80 p-2 rounded border border-war-gold pointer-events-auto text-center w-[44vw] max-w-64">
-        <div className="text-xs sm:text-sm">Age: {AGES[currentAge].name}</div>
+      <div className="absolute top-2 right-2 bg-black/70 p-2 rounded-lg border border-yellow-500/40 pointer-events-auto text-right w-40">
+        <div className="text-yellow-400 text-xs sm:text-sm">{AGES[currentAge].name}</div>
+        <div className="text-white/70 text-xs">{elapsedMin}:{String(elapsedSec).padStart(2, '0')}</div>
         {nextAge ? (
           <button
             type="button"
@@ -88,8 +82,8 @@ export function HUD() {
         )}
       </div>
 
-      <div className="absolute top-2 left-2 bg-black/80 p-3 rounded-lg border border-yellow-500/50 w-64 max-w-[60vw]">
-        <div className="mb-2 border-b border-white/20 pb-2">
+      <div className="absolute top-2 left-2 bg-black/70 p-2 rounded-lg border border-yellow-500/40 w-52 max-w-[58vw]">
+        <div>
           <div className="text-yellow-400 font-bold text-sm">{mission.name}</div>
           <div className="text-xs text-white/70 mt-1">{missionProgressText}</div>
           <div
@@ -104,51 +98,34 @@ export function HUD() {
             * {missionStatus}
           </div>
           {missionStatus === 'active' && (
-            <div className="mt-1 text-[11px] text-white/60">
-              Objective: {mission.objectives[0]?.label ?? 'Complete mission'}
+            <div className="mt-1 text-[10px] text-white/60">
+              {mission.objectives[0]?.label ?? 'Complete mission'}
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🌾</span>
-            <span className="text-yellow-300 font-bold">{Math.floor(resources.food)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🪵</span>
-            <span className="text-amber-400 font-bold">{Math.floor(resources.wood)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🪨</span>
-            <span className="text-gray-300 font-bold">{Math.floor(resources.stone)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg">💰</span>
-            <span className="text-yellow-400 font-bold">{Math.floor(resources.gold)}</span>
-          </div>
-        </div>
+      </div>
 
-        <div className="mb-2">
-          <div className="flex justify-between text-xs mb-1">
-            <span>👥 Population</span>
-            <span>{populationUsed}/{populationCap}</span>
-          </div>
-          <div className="h-2 bg-gray-700 rounded overflow-hidden">
-            <div
-              className="h-full bg-blue-500 transition-all"
-              style={{ width: `${populationPct}%` }}
-            />
-          </div>
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/80 backdrop-blur-sm p-3 rounded-xl border border-yellow-500/30 flex gap-4 text-sm pointer-events-auto">
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">🌾</span>
+          <span className="text-yellow-300 font-bold text-lg">{Math.floor(resources.food)}</span>
         </div>
-
-        <div className="text-xs text-white/60 space-y-0.5">
-          <div>AI Plan: <span className="text-orange-300">{aiPlan}</span></div>
-          <div>Gatherers: F{foodGatherers}/W{woodGatherers}/S{stoneGatherers}/G{goldGatherers}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">🪵</span>
+          <span className="text-amber-400 font-bold text-lg">{Math.floor(resources.wood)}</span>
         </div>
-        <div className="hidden sm:block text-[11px] text-white/55">Middle-drag/WASD - Right-click move</div>
-        {selectedIds.length > 0 && (
-          <div className="mt-2 text-war-gold">Selected: {selectedIds.length}</div>
-        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">🪨</span>
+          <span className="text-gray-300 font-bold text-lg">{Math.floor(resources.stone)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-base">💰</span>
+          <span className="text-yellow-400 font-bold text-lg">{Math.floor(resources.gold)}</span>
+        </div>
+        <div className="border-l border-white/20 pl-3 flex items-center gap-1.5">
+          <span className="text-base">👥</span>
+          <span className="text-white font-bold text-lg">{populationUsed}/{populationCap}</span>
+        </div>
       </div>
 
       {selectionHasBuilding && selectedBuilding && (

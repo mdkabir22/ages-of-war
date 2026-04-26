@@ -61,10 +61,10 @@ export const TERRAIN_EFFECTS: Record<TerrainType, TerrainEffect> = {
 };
 
 export const TERRAIN_COLORS: Record<TerrainType, string[]> = {
-  grass: ['#4a7c3f', '#528a47', '#5a9550', '#458039'],
-  forest: ['#2d5a27', '#35682e', '#2a4f24', '#3d7535'],
-  hill: ['#8b7355', '#9a8263', '#7d6548', '#a08b6d'],
-  water: ['#3b6e8f', '#43799c', '#356380', '#4a85a8'],
+  grass: ['#7bc45a', '#8fd470', '#6ab54a', '#9ee085'],
+  forest: ['#4a8f3d', '#5aa84e', '#3d7a33', '#6bc25a'],
+  hill: ['#c4b090', '#d4c0a0', '#b8a080', '#e0d0b0'],
+  water: ['#5ba0d0', '#6cb8e0', '#4a90c0', '#7ec8f0'],
 };
 
 export function getLaneYPositions(height: number): number[] {

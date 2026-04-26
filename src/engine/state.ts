@@ -566,6 +566,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   tickEconomy: () =>
     set((s) => {
+      const round1 = (value: number) => Math.round(value * 10) / 10;
       const playerBuildings = s.buildings.filter((b) => b.owner === 'player');
       const farmCount = playerBuildings.filter((b) => b.type === 'farm').length;
       const mineCount = playerBuildings.filter((b) => b.type === 'mine').length;
@@ -582,13 +583,15 @@ export const useGameStore = create<GameStore>((set) => ({
         ...s.resources,
         food: Math.max(
           0,
-          s.resources.food +
-            villagerGather.foodGatherers * 1.5 * foodSupportMult * foodDropOffMult -
-            foodUpkeep
+          round1(
+            s.resources.food +
+              villagerGather.foodGatherers * 1.5 * foodSupportMult * foodDropOffMult -
+              foodUpkeep
+          )
         ),
-        wood: s.resources.wood + villagerGather.woodGatherers * 1.2 * woodDropOffMult,
-        stone: s.resources.stone + villagerGather.stoneGatherers * 1.1 * mineSupportMult,
-        gold: s.resources.gold + villagerGather.goldGatherers * 1 * mineSupportMult,
+        wood: round1(s.resources.wood + villagerGather.woodGatherers * 1.2 * woodDropOffMult),
+        stone: round1(s.resources.stone + villagerGather.stoneGatherers * 1.1 * mineSupportMult),
+        gold: round1(s.resources.gold + villagerGather.goldGatherers * 1 * mineSupportMult),
       };
       if (
         s.missionStatus === 'active' &&
