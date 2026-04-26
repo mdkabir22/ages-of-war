@@ -1,0 +1,117 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at top, #15172a 0%, #080a14 50%, #05060b 100%);
+  color: #f4f7ff;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+canvas {
+  display: block;
+  image-rendering: auto;
+}
+
+#root {
+  position: relative;
+}
+
+#root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(80, 120, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 80% 15%, rgba(255, 140, 70, 0.08), transparent 35%);
+  z-index: 0;
+}
+
+/* Smooth button transitions */
+button {
+  cursor: pointer;
+  outline: none;
+  border: none;
+  font-family: inherit;
+}
+
+button:focus-visible {
+  outline: 2px solid #FF6B35;
+  outline-offset: 2px;
+}
+
+.glass-panel {
+  background: linear-gradient(150deg, rgba(16, 20, 36, 0.9) 0%, rgba(10, 13, 26, 0.82) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+.panel-title {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(236, 242, 255, 0.78);
+  font-weight: 700;
+}
+
+.ui-action {
+  transition: transform 180ms ease, filter 220ms ease, box-shadow 220ms ease, opacity 220ms ease;
+}
+
+.ui-action:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.015);
+  filter: brightness(1.06);
+}
+
+.ui-action:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: translateZ(0) scale(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: translateZ(0) scale(1.04);
+    opacity: 1;
+  }
+}
+
+.hud-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(220, 226, 255, 0.7);
+}
+
+.hud-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
