@@ -46,6 +46,8 @@ export function HUD() {
   const timeLeft = Math.max(0, 300 - missionElapsedSec);
   const elapsedMin = Math.floor(missionElapsedSec / 60);
   const elapsedSec = missionElapsedSec % 60;
+  const playerUnitCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player').length);
+  const enemyUnitCount = useGameStore((s) => s.units.filter((u) => u.owner === 'enemy').length);
 
   let missionProgressText = mission.description;
   if (mission.type === 'survival') {
@@ -61,9 +63,9 @@ export function HUD() {
 
   return (
     <div className="fixed inset-0 z-10 text-white font-mono pointer-events-none text-[13px] leading-tight sm:text-sm">
-      <div className="absolute top-2 right-2 bg-black/70 p-2 rounded-lg border border-yellow-500/40 pointer-events-auto text-right w-40">
-        <div className="text-yellow-400 text-xs sm:text-sm">{AGES[currentAge].name}</div>
-        <div className="text-white/70 text-xs">{elapsedMin}:{String(elapsedSec).padStart(2, '0')}</div>
+      <div className="absolute top-2 right-2 bg-black/85 p-2 rounded-lg border border-yellow-500/50 pointer-events-auto text-right w-44">
+        <div className="text-yellow-300 text-sm font-bold">{AGES[currentAge].name}</div>
+        <div className="text-white/80 text-xs">{elapsedMin}:{String(elapsedSec).padStart(2, '0')}</div>
         {nextAge ? (
           <button
             type="button"
@@ -82,10 +84,10 @@ export function HUD() {
         )}
       </div>
 
-      <div className="absolute top-2 left-2 bg-black/70 p-2 rounded-lg border border-yellow-500/40 w-52 max-w-[58vw]">
+      <div className="absolute top-2 left-2 bg-black/85 p-2 rounded-lg border border-yellow-500/50 w-56 max-w-[60vw]">
         <div>
-          <div className="text-yellow-400 font-bold text-sm">{mission.name}</div>
-          <div className="text-xs text-white/70 mt-1">{missionProgressText}</div>
+          <div className="text-yellow-300 font-bold text-sm">{mission.name}</div>
+          <div className="text-xs text-white/85 mt-1">{missionProgressText}</div>
           <div
             className={`text-xs mt-1 ${
               missionStatus === 'active'
@@ -98,11 +100,15 @@ export function HUD() {
             * {missionStatus}
           </div>
           {missionStatus === 'active' && (
-            <div className="mt-1 text-[10px] text-white/60">
+            <div className="mt-1 text-[10px] text-white/75">
               {mission.objectives[0]?.label ?? 'Complete mission'}
             </div>
           )}
         </div>
+      </div>
+
+      <div className="absolute top-16 right-2 bg-black/80 px-2 py-1 rounded border border-cyan-400/40 text-[11px] text-cyan-200">
+        LOG P:{playerUnitCount} E:{enemyUnitCount}
       </div>
 
       <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/85 p-2 rounded-xl border border-yellow-500/35 flex gap-3 text-xs sm:text-sm pointer-events-auto">

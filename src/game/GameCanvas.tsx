@@ -212,12 +212,12 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       const renderState = useGameStore.getState();
       const camera = renderState.camera;
       const shake = renderState.cameraShake.offset;
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#334155';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
       ctx.translate(-camera.x + shake.x, -camera.y + shake.y);
-      ctx.filter = 'brightness(1.12) contrast(1.08)';
+      ctx.filter = 'brightness(1.18) contrast(1.1)';
 
       // Terrain (viewport culled)
       const terrain = renderState.terrain;
@@ -236,16 +236,16 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
           if (tile.type === 'forest') {
-            ctx.fillStyle = '#1a3d16';
+            ctx.fillStyle = 'rgba(34, 94, 34, 0.45)';
             ctx.beginPath();
             ctx.arc(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2, TILE_SIZE / 3, 0, Math.PI * 2);
             ctx.fill();
           } else if (tile.type === 'hill') {
-            ctx.fillStyle = 'rgba(0,0,0,0.10)';
+            ctx.fillStyle = 'rgba(255,255,255,0.10)';
             ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE / 4);
           }
 
-          ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.08)';
           ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
         }
       }
@@ -325,7 +325,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
         const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
         ctx.translate(lungeX, bobY);
-        const unitSize = 32;
+        const unitSize = 36;
         ctx.beginPath();
         ctx.arc(0, 0, unitSize / 2, 0, Math.PI * 2);
         ctx.fillStyle = u.owner === 'player' ? '#3b82f6' : '#ef4444';
@@ -351,9 +351,9 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.restore();
         const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
         ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(u.position.x, u.position.y - 7, 32, 4);
+        ctx.fillRect(u.position.x - 2, u.position.y - 8, 36, 4);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(u.position.x, u.position.y - 7, 32 * hpPct, 4);
+        ctx.fillRect(u.position.x - 2, u.position.y - 8, 36 * hpPct, 4);
       });
       const activeIds = new Set(renderState.units.map((u) => u.id));
       for (const key of unitAnimations.keys()) {
@@ -365,7 +365,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         for (let tx = 0; tx < renderState.fog.width; tx++) {
           const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
           if (tile === 2) continue;
-          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.00)' : 'rgba(0,0,0,0.35)';
+          ctx.fillStyle = 'rgba(0,0,0,0.00)';
           ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
         }
       }
