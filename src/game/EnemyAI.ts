@@ -220,7 +220,7 @@ function syncEnemyBuildings(state: GameState): void {
 }
 
 export function startEnemyAI(
-  getState: () => GameState,
+  _getState: () => GameState,
   setState: (updater: (state: GameState) => GameState) => void
 ): () => void {
   const intervalId = window.setInterval(() => {

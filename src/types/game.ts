@@ -1,3 +1,5 @@
+import type { ResourceType } from '../game/systems/resources';
+
 export interface UnitStats {
   name: string;
   health: number;

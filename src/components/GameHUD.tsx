@@ -208,8 +208,12 @@ export function GameHUD({
   const laneAnchors = [0.28, 0.5, 0.72];
   const battleWidthEstimate = Math.max(1, Math.max(gameState.playerCastle.x, gameState.aiCastle.x) + 80);
   const battleHeightEstimate = Math.max(600, ...gameState.units.map((u) => u.y), gameState.playerBuildings[0]?.y ?? 0, gameState.aiBuildings[0]?.y ?? 0);
-  const lumberHint = getPlacementHint('lumber_camp', gameState.playerCastle, gameState.resourceNodes);
-  const millHint = getPlacementHint('mill', gameState.playerCastle, gameState.resourceNodes);
+  const playerBaseHintPos = {
+    x: gameState.playerCastle.x,
+    y: gameState.playerBuildings[0]?.y ?? 300,
+  };
+  const lumberHint = getPlacementHint('lumber_camp', playerBaseHintPos, gameState.resourceNodes);
+  const millHint = getPlacementHint('mill', playerBaseHintPos, gameState.resourceNodes);
   const lanePressure = [0, 0, 0];
   for (const unit of gameState.units) {
     if (unit.isDead) continue;

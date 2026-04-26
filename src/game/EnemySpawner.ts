@@ -25,7 +25,7 @@ function nearestPlayerTarget(state: GameState, from: Position): Position | undef
 }
 
 export function startEnemySpawner(
-  getState: () => GameState,
+  _getState: () => GameState,
   setState: (updater: (state: GameState) => GameState) => void
 ): () => void {
   const intervalId = window.setInterval(() => {

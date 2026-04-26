@@ -183,7 +183,7 @@ export function applyCampaignPack(
       }
     }
   } else {
-    if ((mode === 'campaign' || mode === 'assault') && missionIndex >= 5) {
+    if (mode === 'assault' && missionIndex >= 5) {
       objectives.push({
         id: 'destroy_enemies',
         label: `Eliminate ${22 + missionIndex * 2} attackers`,

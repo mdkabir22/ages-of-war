@@ -1143,6 +1143,9 @@ export function updateGame(state: GameState, dt: number, canvasWidth: number, ca
             );
           } else {
             // Melee damage
+            const laneAligned = unit.target
+              ? getLaneIndex(unit.y, canvasHeight) === getLaneIndex(unit.target.y, canvasHeight)
+              : true;
             const laneDamageMult = unit.isPlayer
               ? (state.playerLaneFocus === 'auto' ? 1 : laneAligned ? 1.05 : 0.94)
               : 1;
