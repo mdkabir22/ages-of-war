@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ages of War</string>
+    <string name="title_activity_main">Ages of War</string>
+    <string name="package_name">com.agesofwar.app</string>
+    <string name="custom_url_scheme">com.agesofwar.app</string>
+</resources>
