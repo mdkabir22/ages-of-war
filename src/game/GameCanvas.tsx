@@ -23,14 +23,25 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
     void audio.preload();
     const unitAnimations = new Map<string, AnimatedUnit>();
 
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext('2d')!;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+    const layoutCanvasSize = () => {
+      const vv = window.visualViewport;
+      const w = Math.max(1, Math.round(vv?.width ?? window.innerWidth));
+      const h = Math.max(1, Math.round(vv?.height ?? window.innerHeight));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
     };
+
+    const resize = () => layoutCanvasSize();
     window.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('resize', resize);
+    window.visualViewport?.addEventListener('scroll', resize);
     resize();
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -198,238 +209,253 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
     let animId: number;
     let prevTime = performance.now();
     const loop = () => {
-      const state = useGameStore.getState();
-      const now = performance.now();
-      const dt = Math.min((now - prevTime) / 1000, 0.05);
-      prevTime = now;
-      if (!pausedRef.current) {
-        state.tickProductionQueues(dt);
-        state.tickUnitMovement(dt);
-        state.tickCombat();
-        state.tickCameraShake(dt);
-        state.tickFogOfWar();
-      }
-      const renderState = useGameStore.getState();
-      const camera = renderState.camera;
-      const shake = renderState.cameraShake.offset;
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      try {
+        layoutCanvasSize();
+        const state = useGameStore.getState();
+        const now = performance.now();
+        const dt = Math.min((now - prevTime) / 1000, 0.05);
+        prevTime = now;
+        if (!pausedRef.current) {
+          state.tickProductionQueues(dt);
+          state.tickUnitMovement(dt);
+          state.tickCombat();
+          state.tickCameraShake(dt);
+          state.tickFogOfWar();
+        }
+        const renderState = useGameStore.getState();
+        const camera = renderState.camera;
+        const shake = renderState.cameraShake.offset;
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      ctx.save();
-      ctx.translate(-camera.x + shake.x, -camera.y + shake.y);
+        ctx.save();
+        ctx.translate(-camera.x + shake.x, -camera.y + shake.y);
 
-      // Terrain (viewport culled)
-      const terrain = renderState.terrain;
-      const startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
-      const endCol = terrain[0] ? Math.min(terrain[0].length, startCol + Math.ceil(canvas.width / TILE_SIZE) + 2) : 0;
-      const startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
-      const endRow = Math.min(terrain.length, startRow + Math.ceil(canvas.height / TILE_SIZE) + 2);
-      for (let ty = startRow; ty < endRow; ty++) {
-        for (let tx = startCol; tx < endCol; tx++) {
-          const tile = terrain[ty]?.[tx];
-          if (!tile) continue;
-          const screenX = tile.x * TILE_SIZE;
-          const screenY = tile.y * TILE_SIZE;
-          const colors = TERRAIN_COLORS[tile.type];
-          ctx.fillStyle = colors[tile.variant] ?? colors[0];
-          ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+        // Terrain (viewport culled)
+        const terrain = renderState.terrain;
+        const startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
+        const endCol = terrain[0] ? Math.min(terrain[0].length, startCol + Math.ceil(canvas.width / TILE_SIZE) + 2) : 0;
+        const startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
+        const endRow = Math.min(terrain.length, startRow + Math.ceil(canvas.height / TILE_SIZE) + 2);
+        for (let ty = startRow; ty < endRow; ty++) {
+          for (let tx = startCol; tx < endCol; tx++) {
+            const tile = terrain[ty]?.[tx];
+            if (!tile) continue;
+            const screenX = tile.x * TILE_SIZE;
+            const screenY = tile.y * TILE_SIZE;
+            const colors = TERRAIN_COLORS[tile.type];
+            ctx.fillStyle = colors[tile.variant] ?? colors[0];
+            ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
-          if (tile.type === 'forest') {
-            ctx.fillStyle = 'rgba(22, 101, 52, 0.55)';
-            ctx.beginPath();
-            ctx.arc(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2 - 3, TILE_SIZE / 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'rgba(120,53,15,0.75)';
-            ctx.fillRect(screenX + TILE_SIZE / 2 - 2, screenY + TILE_SIZE / 2 + 8, 4, 8);
-            ctx.fillStyle = '#dcfce7';
-            ctx.font = 'bold 9px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('W', screenX + TILE_SIZE / 2, screenY + 9);
-          } else if (tile.type === 'hill') {
-            ctx.fillStyle = 'rgba(120, 113, 108, 0.35)';
-            ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE / 4);
-            ctx.fillStyle = 'rgba(231,229,228,0.6)';
-            ctx.beginPath();
-            ctx.moveTo(screenX + TILE_SIZE / 2, screenY + 8);
-            ctx.lineTo(screenX + 10, screenY + TILE_SIZE - 8);
-            ctx.lineTo(screenX + TILE_SIZE - 10, screenY + TILE_SIZE - 8);
-            ctx.closePath();
-            ctx.stroke();
-            ctx.fillStyle = '#fafaf9';
-            ctx.font = 'bold 9px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('S', screenX + TILE_SIZE / 2, screenY + 9);
-          } else if (tile.type === 'water') {
-            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(screenX + 6, screenY + TILE_SIZE / 2 - 3);
-            ctx.quadraticCurveTo(screenX + 12, screenY + TILE_SIZE / 2 - 8, screenX + 18, screenY + TILE_SIZE / 2 - 3);
-            ctx.quadraticCurveTo(screenX + 24, screenY + TILE_SIZE / 2 + 2, screenX + 30, screenY + TILE_SIZE / 2 - 3);
-            ctx.stroke();
+            if (tile.type === 'forest') {
+              ctx.fillStyle = 'rgba(22, 101, 52, 0.55)';
+              ctx.beginPath();
+              ctx.arc(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2 - 3, TILE_SIZE / 3, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = 'rgba(120,53,15,0.75)';
+              ctx.fillRect(screenX + TILE_SIZE / 2 - 2, screenY + TILE_SIZE / 2 + 8, 4, 8);
+              ctx.fillStyle = '#dcfce7';
+              ctx.font = 'bold 9px Arial';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('W', screenX + TILE_SIZE / 2, screenY + 9);
+            } else if (tile.type === 'hill') {
+              ctx.fillStyle = 'rgba(120, 113, 108, 0.35)';
+              ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE / 4);
+              ctx.fillStyle = 'rgba(231,229,228,0.6)';
+              ctx.beginPath();
+              ctx.moveTo(screenX + TILE_SIZE / 2, screenY + 8);
+              ctx.lineTo(screenX + 10, screenY + TILE_SIZE - 8);
+              ctx.lineTo(screenX + TILE_SIZE - 10, screenY + TILE_SIZE - 8);
+              ctx.closePath();
+              ctx.stroke();
+              ctx.fillStyle = '#fafaf9';
+              ctx.font = 'bold 9px Arial';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('S', screenX + TILE_SIZE / 2, screenY + 9);
+            } else if (tile.type === 'water') {
+              ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(screenX + 6, screenY + TILE_SIZE / 2 - 3);
+              ctx.quadraticCurveTo(screenX + 12, screenY + TILE_SIZE / 2 - 8, screenX + 18, screenY + TILE_SIZE / 2 - 3);
+              ctx.quadraticCurveTo(screenX + 24, screenY + TILE_SIZE / 2 + 2, screenX + 30, screenY + TILE_SIZE / 2 - 3);
+              ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
           }
-
-          ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-          ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
-        }
-      }
-
-      // Buildings
-      renderState.buildings.forEach((b) => {
-        const buildingSize = 42;
-        const buildingIcons: Record<string, string> = {
-          townCenter: 'TC',
-          house: 'H',
-          farm: 'F',
-          mine: 'M',
-          lumber_camp: 'LC',
-          mill: 'ML',
-          barracks: 'BR',
-        };
-        const isSelected = renderState.selectedIds.includes(b.id);
-        ctx.save();
-        if (isSelected) {
-          ctx.shadowColor = '#fbbf24';
-          ctx.shadowBlur = 15;
-        } else if (b.owner === 'player') {
-          ctx.shadowColor = '#1e40af';
-          ctx.shadowBlur = 8;
-        }
-        ctx.fillStyle = b.owner === 'player' ? '#1e40af' : '#991b1b';
-        ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
-        ctx.lineWidth = isSelected ? 3 : 2;
-        ctx.strokeStyle = isSelected ? '#fbbf24' : b.owner === 'player' ? '#60a5fa' : '#f87171';
-        ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);
-        ctx.strokeStyle = b.owner === 'player' ? '#93c5fd' : '#fca5a5';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(b.position.x + buildingSize / 2, b.position.y + buildingSize / 2, buildingSize / 2 + 4, 0, Math.PI * 2);
-        ctx.stroke();
-
-        const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
-        ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 5);
-        ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
-        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 5);
-        ctx.restore();
-      });
-
-      // Units
-      renderState.units.forEach((u) => {
-        if (u.owner === 'enemy') {
-          const tx = Math.floor((u.position.x + 16) / FOG_TILE_SIZE);
-          const ty = Math.floor((u.position.y + 16) / FOG_TILE_SIZE);
-          const { width, height, tiles } = renderState.fog;
-          if (tx < 0 || ty < 0 || tx >= width || ty >= height) return;
-          if (tiles[ty * width + tx] !== 2) return;
-        }
-        let anim = unitAnimations.get(u.id);
-        if (!anim) {
-          anim = { currentAnim: 'idle', frameIndex: 0, frameTimer: 0, facingRight: true };
-          unitAnimations.set(u.id, anim);
-        }
-        const desiredState = deriveAnimationState(u);
-        setAnimation(anim, desiredState);
-        updateAnimation(anim, dt);
-        if (u.target) {
-          anim.facingRight = u.target.x >= u.position.x;
         }
 
-        ctx.save();
-        ctx.shadowColor = u.owner === 'player' ? '#fde047' : '#fb923c';
-        ctx.shadowBlur = 6;
-        ctx.translate(u.position.x + 16, u.position.y + 16);
-        if (u.target || (u.path && u.pathIndex !== undefined && u.path[u.pathIndex])) {
-          const lookAt = u.target ?? u.path?.[u.pathIndex ?? 0] ?? u.position;
-          const angle = Math.atan2(lookAt.y - u.position.y, lookAt.x - u.position.x);
-          ctx.rotate(angle);
-        }
-        const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
-        const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
-        ctx.translate(lungeX, bobY);
-        const unitSize = 36;
-        ctx.beginPath();
-        ctx.arc(0, 0, unitSize / 2, 0, Math.PI * 2);
-        ctx.fillStyle = u.owner === 'player' ? '#3b82f6' : '#ef4444';
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = u.owner === 'player' ? '#93c5fd' : '#fca5a5';
-        ctx.stroke();
-        ctx.strokeStyle = u.owner === 'player' ? '#dbeafe' : '#fecaca';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, unitSize / 2 + 5, 0, Math.PI * 2);
-        ctx.stroke();
+        // Buildings
+        renderState.buildings.forEach((b) => {
+          const buildingSize = 42;
+          const buildingIcons: Record<string, string> = {
+            townCenter: 'TC',
+            house: 'H',
+            farm: 'F',
+            mine: 'M',
+            lumber_camp: 'LC',
+            mill: 'ML',
+            barracks: 'BR',
+          };
+          const isSelected = renderState.selectedIds.includes(b.id);
+          ctx.save();
+          if (isSelected) {
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 15;
+          } else if (b.owner === 'player') {
+            ctx.shadowColor = '#1e40af';
+            ctx.shadowBlur = 8;
+          }
+          ctx.fillStyle = b.owner === 'player' ? '#1e40af' : '#991b1b';
+          ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
+          ctx.lineWidth = isSelected ? 3 : 2;
+          ctx.strokeStyle = isSelected ? '#fbbf24' : b.owner === 'player' ? '#60a5fa' : '#f87171';
+          ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
+          ctx.shadowBlur = 0;
 
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.moveTo(unitSize / 2 - 2, -4);
-        ctx.lineTo(unitSize / 2 + 4, 0);
-        ctx.lineTo(unitSize / 2 - 2, 4);
-        ctx.closePath();
-        ctx.fill();
-        const typeMarker: Record<string, string> = {
-          villager: 'V',
-          warrior: 'W',
-          archer: 'A',
-          spearman: 'S',
-          cavalry: 'C',
-        };
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(typeMarker[u.type] ?? '?', 0, 0);
-        if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
-          ctx.strokeStyle = '#ffffff';
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 12px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);
+          ctx.strokeStyle = b.owner === 'player' ? '#93c5fd' : '#fca5a5';
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(0, 0, 18, -Math.PI / 3, Math.PI / 3);
+          ctx.arc(b.position.x + buildingSize / 2, b.position.y + buildingSize / 2, buildingSize / 2 + 4, 0, Math.PI * 2);
           ctx.stroke();
+
+          const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
+          ctx.fillStyle = '#7f1d1d';
+          ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 5);
+          ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
+          ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 5);
+          ctx.restore();
+        });
+
+        // Units
+        renderState.units.forEach((u) => {
+          if (u.owner === 'enemy') {
+            const tx = Math.floor((u.position.x + 16) / FOG_TILE_SIZE);
+            const ty = Math.floor((u.position.y + 16) / FOG_TILE_SIZE);
+            const { width, height, tiles } = renderState.fog;
+            if (tx < 0 || ty < 0 || tx >= width || ty >= height) return;
+            if (tiles[ty * width + tx] !== 2) return;
+          }
+          let anim = unitAnimations.get(u.id);
+          if (!anim) {
+            anim = { currentAnim: 'idle', frameIndex: 0, frameTimer: 0, facingRight: true };
+            unitAnimations.set(u.id, anim);
+          }
+          const desiredState = deriveAnimationState(u);
+          setAnimation(anim, desiredState);
+          updateAnimation(anim, dt);
+          if (u.target) {
+            anim.facingRight = u.target.x >= u.position.x;
+          }
+
+          ctx.save();
+          ctx.shadowColor = u.owner === 'player' ? '#fde047' : '#fb923c';
+          ctx.shadowBlur = 6;
+          ctx.translate(u.position.x + 16, u.position.y + 16);
+          if (u.target || (u.path && u.pathIndex !== undefined && u.path[u.pathIndex])) {
+            const lookAt = u.target ?? u.path?.[u.pathIndex ?? 0] ?? u.position;
+            const angle = Math.atan2(lookAt.y - u.position.y, lookAt.x - u.position.x);
+            ctx.rotate(angle);
+          }
+          const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
+          const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
+          ctx.translate(lungeX, bobY);
+          const unitSize = 36;
+          ctx.beginPath();
+          ctx.arc(0, 0, unitSize / 2, 0, Math.PI * 2);
+          ctx.fillStyle = u.owner === 'player' ? '#3b82f6' : '#ef4444';
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = u.owner === 'player' ? '#93c5fd' : '#fca5a5';
+          ctx.stroke();
+          ctx.strokeStyle = u.owner === 'player' ? '#dbeafe' : '#fecaca';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, unitSize / 2 + 5, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.moveTo(unitSize / 2 - 2, -4);
+          ctx.lineTo(unitSize / 2 + 4, 0);
+          ctx.lineTo(unitSize / 2 - 2, 4);
+          ctx.closePath();
+          ctx.fill();
+          const typeMarker: Record<string, string> = {
+            villager: 'V',
+            warrior: 'W',
+            archer: 'A',
+            spearman: 'S',
+            cavalry: 'C',
+          };
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(typeMarker[u.type] ?? '?', 0, 0);
+          if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, -Math.PI / 3, Math.PI / 3);
+            ctx.stroke();
+          }
+          ctx.restore();
+          const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
+          ctx.fillStyle = '#7f1d1d';
+          ctx.fillRect(u.position.x - 2, u.position.y - 8, 36, 4);
+          ctx.fillStyle = '#22c55e';
+          ctx.fillRect(u.position.x - 2, u.position.y - 8, 36 * hpPct, 4);
+        });
+        const activeIds = new Set(renderState.units.map((u) => u.id));
+        for (const key of unitAnimations.keys()) {
+          if (!activeIds.has(key)) unitAnimations.delete(key);
+        }
+
+        // Fog overlay
+        for (let ty = 0; ty < renderState.fog.height; ty++) {
+          for (let tx = 0; tx < renderState.fog.width; tx++) {
+            const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
+            if (tile === 2) continue;
+            ctx.fillStyle = 'rgba(0,0,0,0.00)';
+            ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
+          }
         }
         ctx.restore();
-        const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
-        ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(u.position.x - 2, u.position.y - 8, 36, 4);
-        ctx.fillStyle = '#22c55e';
-        ctx.fillRect(u.position.x - 2, u.position.y - 8, 36 * hpPct, 4);
-      });
-      const activeIds = new Set(renderState.units.map((u) => u.id));
-      for (const key of unitAnimations.keys()) {
-        if (!activeIds.has(key)) unitAnimations.delete(key);
-      }
 
-      // Fog overlay
-      for (let ty = 0; ty < renderState.fog.height; ty++) {
-        for (let tx = 0; tx < renderState.fog.width; tx++) {
-          const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
-          if (tile === 2) continue;
-          ctx.fillStyle = 'rgba(0,0,0,0.00)';
-          ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
+        if (isSelecting) {
+          const left = Math.min(selectionStartX, selectionCurrentX);
+          const top = Math.min(selectionStartY, selectionCurrentY);
+          const width = Math.abs(selectionCurrentX - selectionStartX);
+          const height = Math.abs(selectionCurrentY - selectionStartY);
+          ctx.save();
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = '#F59E0B';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(left, top, width, height);
+          ctx.restore();
         }
-      }
-      ctx.restore();
-
-      if (isSelecting) {
-        const left = Math.min(selectionStartX, selectionCurrentX);
-        const top = Math.min(selectionStartY, selectionCurrentY);
-        const width = Math.abs(selectionCurrentX - selectionStartX);
-        const height = Math.abs(selectionCurrentY - selectionStartY);
-        ctx.save();
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = '#F59E0B';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(left, top, width, height);
-        ctx.restore();
+      } catch (err) {
+        console.error('[GameCanvas] render loop error', err);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fecaca';
+        ctx.font = '14px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.fillText('Render error (mobile):', 12, 16);
+        ctx.fillText(msg.slice(0, 200), 12, 40);
       }
 
       animId = requestAnimationFrame(loop);
@@ -444,6 +470,8 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('resize', resize);
+      window.visualViewport?.removeEventListener('scroll', resize);
       window.clearInterval(economyId);
       stopEnemyAI();
     };
@@ -452,8 +480,8 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-full h-full"
-      style={{ imageRendering: 'pixelated' }}
+      className="fixed inset-0 z-0 h-full w-full touch-none"
+      style={{ imageRendering: 'auto' }}
     />
   );
 }

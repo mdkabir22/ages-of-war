@@ -5,6 +5,7 @@ import { Minimap } from './ui/Minimap';
 import { PauseMenu } from './components/PauseMenu';
 import { audio } from './audio/manager';
 import { MainMenu } from './components/MainMenu';
+import { GameErrorBoundary } from './components/GameErrorBoundary';
 import type { GameMode } from './types/game';
 
 type AppScreen = 'menu' | 'playing';
@@ -48,21 +49,23 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-war-night">
-      <GameCanvas key={`${gameKey}-${selectedMode}`} paused={paused} />
-      <HUD />
-      <Minimap />
-      <PauseMenu
-        isOpen={paused}
-        onResume={() => setPaused(false)}
-        onRestart={() => {
-          setPaused(false);
-          setGameKey((k) => k + 1);
-        }}
-        onQuit={() => {
-          setPaused(false);
-          setScreen('menu');
-        }}
-      />
+      <GameErrorBoundary key={`${gameKey}-${selectedMode}`}>
+        <GameCanvas paused={paused} />
+        <HUD />
+        <Minimap />
+        <PauseMenu
+          isOpen={paused}
+          onResume={() => setPaused(false)}
+          onRestart={() => {
+            setPaused(false);
+            setGameKey((k) => k + 1);
+          }}
+          onQuit={() => {
+            setPaused(false);
+            setScreen('menu');
+          }}
+        />
+      </GameErrorBoundary>
     </div>
   );
 }
