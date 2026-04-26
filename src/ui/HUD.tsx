@@ -36,6 +36,9 @@ export function HUD() {
     ? Object.entries(AGES[nextAge].cost).every(([res, amount]) => resources[res as keyof typeof resources] >= amount)
     : false;
   const enemyTownCenter = buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
+  const playerUnits = useGameStore((s) => s.units.filter((u) => u.owner === 'player'));
+  const movingPlayerUnits = playerUnits.filter((u) => Boolean(u.target)).length;
+  const combatPlayerUnits = playerUnits.filter((u) => u.type !== 'villager').length;
   const selectionHasBuilding = Boolean(selectedBuilding);
   const canTrainVillager = resources.food >= villagerFoodCost && populationUsed < populationCap;
   const canTrainWarrior =
@@ -109,6 +112,12 @@ export function HUD() {
 
       <div className="absolute top-16 right-2 bg-black/80 px-2 py-1 rounded border border-cyan-400/40 text-[11px] text-cyan-200">
         LOG P:{playerUnitCount} E:{enemyUnitCount}
+      </div>
+
+      <div className="absolute top-20 left-2 bg-black/80 px-2 py-1 rounded border border-slate-300/40 text-[11px] text-white/90">
+        <div>Activity</div>
+        <div>P Units: {playerUnits.length} | Army: {combatPlayerUnits}</div>
+        <div>Moving: {movingPlayerUnits} | Selected: {selectedIds.length}</div>
       </div>
 
       <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/85 p-2 rounded-xl border border-yellow-500/35 flex gap-3 text-xs sm:text-sm pointer-events-auto">

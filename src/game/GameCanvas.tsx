@@ -217,7 +217,6 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
       ctx.save();
       ctx.translate(-camera.x + shake.x, -camera.y + shake.y);
-      ctx.filter = 'brightness(1.18) contrast(1.1)';
 
       // Terrain (viewport culled)
       const terrain = renderState.terrain;
@@ -236,13 +235,40 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
           if (tile.type === 'forest') {
-            ctx.fillStyle = 'rgba(34, 94, 34, 0.45)';
+            ctx.fillStyle = 'rgba(22, 101, 52, 0.55)';
             ctx.beginPath();
-            ctx.arc(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2, TILE_SIZE / 3, 0, Math.PI * 2);
+            ctx.arc(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2 - 3, TILE_SIZE / 3, 0, Math.PI * 2);
             ctx.fill();
+            ctx.fillStyle = 'rgba(120,53,15,0.75)';
+            ctx.fillRect(screenX + TILE_SIZE / 2 - 2, screenY + TILE_SIZE / 2 + 8, 4, 8);
+            ctx.fillStyle = '#dcfce7';
+            ctx.font = 'bold 9px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('W', screenX + TILE_SIZE / 2, screenY + 9);
           } else if (tile.type === 'hill') {
-            ctx.fillStyle = 'rgba(255,255,255,0.10)';
+            ctx.fillStyle = 'rgba(120, 113, 108, 0.35)';
             ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE / 4);
+            ctx.fillStyle = 'rgba(231,229,228,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(screenX + TILE_SIZE / 2, screenY + 8);
+            ctx.lineTo(screenX + 10, screenY + TILE_SIZE - 8);
+            ctx.lineTo(screenX + TILE_SIZE - 10, screenY + TILE_SIZE - 8);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = '#fafaf9';
+            ctx.font = 'bold 9px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('S', screenX + TILE_SIZE / 2, screenY + 9);
+          } else if (tile.type === 'water') {
+            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(screenX + 6, screenY + TILE_SIZE / 2 - 3);
+            ctx.quadraticCurveTo(screenX + 12, screenY + TILE_SIZE / 2 - 8, screenX + 18, screenY + TILE_SIZE / 2 - 3);
+            ctx.quadraticCurveTo(screenX + 24, screenY + TILE_SIZE / 2 + 2, screenX + 30, screenY + TILE_SIZE / 2 - 3);
+            ctx.stroke();
           }
 
           ctx.strokeStyle = 'rgba(255,255,255,0.08)';
@@ -252,7 +278,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
       // Buildings
       renderState.buildings.forEach((b) => {
-        const buildingSize = 36;
+        const buildingSize = 42;
         const buildingIcons: Record<string, string> = {
           townCenter: 'TC',
           house: 'H',
@@ -279,16 +305,21 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);
+        ctx.strokeStyle = b.owner === 'player' ? '#93c5fd' : '#fca5a5';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(b.position.x + buildingSize / 2, b.position.y + buildingSize / 2, buildingSize / 2 + 4, 0, Math.PI * 2);
+        ctx.stroke();
 
         const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
         ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 4);
+        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 5);
         ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
-        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 4);
+        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 5);
         ctx.restore();
       });
 
@@ -333,6 +364,11 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.lineWidth = 3;
         ctx.strokeStyle = u.owner === 'player' ? '#93c5fd' : '#fca5a5';
         ctx.stroke();
+        ctx.strokeStyle = u.owner === 'player' ? '#dbeafe' : '#fecaca';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, unitSize / 2 + 5, 0, Math.PI * 2);
+        ctx.stroke();
 
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
@@ -341,6 +377,18 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.lineTo(unitSize / 2 - 2, 4);
         ctx.closePath();
         ctx.fill();
+        const typeMarker: Record<string, string> = {
+          villager: 'V',
+          warrior: 'W',
+          archer: 'A',
+          spearman: 'S',
+          cavalry: 'C',
+        };
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(typeMarker[u.type] ?? '?', 0, 0);
         if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2;
@@ -369,7 +417,6 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
         }
       }
-      ctx.filter = 'none';
       ctx.restore();
 
       if (isSelecting) {
