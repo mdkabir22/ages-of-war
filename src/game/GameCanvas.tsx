@@ -254,13 +254,13 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       renderState.buildings.forEach((b) => {
         const buildingSize = 36;
         const buildingIcons: Record<string, string> = {
-          townCenter: '🏛️',
-          house: '🏠',
-          farm: '🌾',
-          mine: '⛏️',
-          lumber_camp: '🪵',
-          mill: '🌾',
-          barracks: '⚔️',
+          townCenter: 'TC',
+          house: 'H',
+          farm: 'F',
+          mine: 'M',
+          lumber_camp: 'LC',
+          mill: 'ML',
+          barracks: 'BR',
         };
         const isSelected = renderState.selectedIds.includes(b.id);
         ctx.save();
@@ -279,7 +279,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Arial';
+        ctx.font = 'bold 11px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);

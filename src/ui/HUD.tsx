@@ -105,31 +105,31 @@ export function HUD() {
         </div>
       </div>
 
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/80 backdrop-blur-sm p-3 rounded-xl border border-yellow-500/30 flex gap-4 text-sm pointer-events-auto">
-        <div className="flex items-center gap-1.5">
-          <span className="text-base">🌾</span>
-          <span className="text-yellow-300 font-bold text-lg">{Math.floor(resources.food)}</span>
+      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/85 p-2 rounded-xl border border-yellow-500/35 flex gap-3 text-xs sm:text-sm pointer-events-auto">
+        <div className="flex items-center gap-1">
+          <span className="text-white/80">FOOD</span>
+          <span className="text-yellow-300 font-bold text-base sm:text-lg">{Math.floor(resources.food)}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-base">🪵</span>
-          <span className="text-amber-400 font-bold text-lg">{Math.floor(resources.wood)}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-white/80">WOOD</span>
+          <span className="text-amber-400 font-bold text-base sm:text-lg">{Math.floor(resources.wood)}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-base">🪨</span>
-          <span className="text-gray-300 font-bold text-lg">{Math.floor(resources.stone)}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-white/80">STONE</span>
+          <span className="text-gray-300 font-bold text-base sm:text-lg">{Math.floor(resources.stone)}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-base">💰</span>
-          <span className="text-yellow-400 font-bold text-lg">{Math.floor(resources.gold)}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-white/80">GOLD</span>
+          <span className="text-yellow-400 font-bold text-base sm:text-lg">{Math.floor(resources.gold)}</span>
         </div>
-        <div className="border-l border-white/20 pl-3 flex items-center gap-1.5">
-          <span className="text-base">👥</span>
-          <span className="text-white font-bold text-lg">{populationUsed}/{populationCap}</span>
+        <div className="border-l border-white/20 pl-2 flex items-center gap-1">
+          <span className="text-white/80">POP</span>
+          <span className="text-white font-bold text-base sm:text-lg">{populationUsed}/{populationCap}</span>
         </div>
       </div>
 
       {selectionHasBuilding && selectedBuilding && (
-        <div className="absolute bottom-3 right-2 pointer-events-auto bg-black/85 p-2 rounded border border-war-gold min-w-52 max-w-[56vw]">
+        <div className="absolute bottom-24 right-2 pointer-events-auto bg-black/85 p-2 rounded border border-war-gold min-w-52 max-w-[56vw]">
           <div className="text-sm mb-2">Building: {selectedBuilding.type}</div>
           {selectedQueue && (
             <div className="text-xs mb-2 text-white/80">

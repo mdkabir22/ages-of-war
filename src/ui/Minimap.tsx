@@ -84,7 +84,7 @@ export function Minimap() {
   };
 
   return (
-    <div className="fixed bottom-4 left-4 z-20 pointer-events-auto bg-black/75 border border-white/30 rounded-lg p-2">
+    <div className="fixed bottom-3 left-3 z-20 pointer-events-auto bg-black/80 border border-white/30 rounded-lg p-2">
       <canvas
         ref={canvasRef}
         width={MINIMAP_WIDTH}
