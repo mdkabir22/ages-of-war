@@ -91,7 +91,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router'],
-          firebase: ['firebase'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics', 'firebase/remote-config'],
           ui: [
             '@radix-ui/react-dialog',
             '@radix-ui/react-tabs',
