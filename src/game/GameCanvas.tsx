@@ -251,13 +251,17 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
       // Buildings
       renderState.buildings.forEach((b) => {
-        ctx.fillStyle = b.owner === 'player' ? '#8B0000' : '#71797E';
-        ctx.fillRect(b.position.x, b.position.y, 32, 32);
+        const buildingSize = 36;
+        ctx.fillStyle = b.owner === 'player' ? '#b91c1c' : '#64748b';
+        ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = b.owner === 'player' ? '#fecaca' : '#cbd5e1';
+        ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
         const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
         ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(b.position.x, b.position.y - 8, 32, 4);
+        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 4);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(b.position.x, b.position.y - 8, 32 * hpPct, 4);
+        ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 4);
       });
 
       // Units
@@ -287,8 +291,12 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
         const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
         ctx.translate(lungeX, bobY);
-        ctx.fillStyle = u.owner === 'player' ? '#FFD700' : '#C2410C';
-        ctx.fillRect(-8, -8, 16, 16);
+        const unitSize = 20;
+        ctx.fillStyle = u.owner === 'player' ? '#fde047' : '#fb923c';
+        ctx.fillRect(-unitSize / 2, -unitSize / 2, unitSize, unitSize);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = u.owner === 'player' ? '#fef9c3' : '#ffedd5';
+        ctx.strokeRect(-unitSize / 2, -unitSize / 2, unitSize, unitSize);
         if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = 2;
@@ -299,9 +307,9 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         ctx.restore();
         const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
         ctx.fillStyle = '#7f1d1d';
-        ctx.fillRect(u.position.x + 6, u.position.y - 6, 20, 3);
+        ctx.fillRect(u.position.x + 4, u.position.y - 6, 24, 3);
         ctx.fillStyle = '#22c55e';
-        ctx.fillRect(u.position.x + 6, u.position.y - 6, 20 * hpPct, 3);
+        ctx.fillRect(u.position.x + 4, u.position.y - 6, 24 * hpPct, 3);
       });
       const activeIds = new Set(renderState.units.map((u) => u.id));
       for (const key of unitAnimations.keys()) {
@@ -313,7 +321,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
         for (let tx = 0; tx < renderState.fog.width; tx++) {
           const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
           if (tile === 2) continue;
-          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.92)';
+          ctx.fillStyle = tile === 1 ? 'rgba(0,0,0,0.30)' : 'rgba(0,0,0,0.65)';
           ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
         }
       }

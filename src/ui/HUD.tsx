@@ -69,7 +69,7 @@ export function HUD() {
 
   return (
     <div className="fixed inset-0 z-10 text-white font-mono pointer-events-none">
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 p-3 rounded border border-war-gold pointer-events-auto text-center min-w-72">
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/85 p-2 rounded border border-war-gold pointer-events-auto text-center min-w-56 max-w-[72vw]">
         <div className="text-sm">Current Age: {AGES[currentAge].name}</div>
         {nextAge ? (
           <button
@@ -89,7 +89,7 @@ export function HUD() {
         )}
       </div>
 
-      <div className="absolute top-4 left-4 bg-black/70 p-3 rounded border border-war-gold">
+      <div className="absolute top-2 left-2 bg-black/85 p-2 rounded border border-war-gold max-w-[52vw]">
         <div className="mb-2 border-b border-white/20 pb-2">
           <div className="text-war-gold">Mission: {mission.name}</div>
           <div className="text-xs text-white/80">{missionProgressText}</div>
@@ -110,29 +110,26 @@ export function HUD() {
             </div>
           )}
         </div>
-        <div>Food: {resources.food}</div>
-        <div>Wood: {resources.wood}</div>
-        <div>Stone: {resources.stone}</div>
-        <div>Gold: {resources.gold}</div>
-        <div>Population: {populationUsed}/{populationCap}</div>
-        <div>Enemy AI Plan: {aiPlan}</div>
+        <div className="text-sm">Food: {resources.food}</div>
+        <div className="text-sm">Wood: {resources.wood}</div>
+        <div className="text-sm">Stone: {resources.stone}</div>
+        <div className="text-sm">Gold: {resources.gold}</div>
+        <div className="text-sm">Population: {populationUsed}/{populationCap}</div>
+        <div className="text-xs text-white/80">Enemy AI Plan: {aiPlan}</div>
         <div className="text-xs text-white/70">
           Economy: Villager-driven only (no passive farm/mine/town-center income)
         </div>
-        <div className="text-xs text-white/60">
-          Gatherers F/W/S/G: {foodGatherers}/{woodGatherers}/{stoneGatherers}/{goldGatherers}
+        <div className="text-[11px] text-white/60">
+          Gatherers: {foodGatherers}/{woodGatherers}/{stoneGatherers}/{goldGatherers}
         </div>
-        <div className="text-xs text-white/55">
-          Farm bonus (food gather): +{Math.round(Math.min(60, farmCount * 20))}% | Mine bonus (gold/stone): +{Math.round(Math.min(45, mineCount * 15))}%
-        </div>
-        <div className="text-xs text-white/55">Middle-drag/WASD: camera | Right-click: move/rally</div>
+        <div className="text-[11px] text-white/55">Middle-drag/WASD • Right-click move</div>
         {selectedIds.length > 0 && (
           <div className="mt-2 text-war-gold">Selected: {selectedIds.length}</div>
         )}
       </div>
 
       {selectionHasBuilding && selectedBuilding && (
-        <div className="absolute bottom-4 right-4 pointer-events-auto bg-black/75 p-3 rounded border border-war-gold min-w-56">
+        <div className="absolute bottom-3 right-2 pointer-events-auto bg-black/85 p-2 rounded border border-war-gold min-w-52 max-w-[56vw]">
           <div className="text-sm mb-2">Building: {selectedBuilding.type}</div>
           {selectedQueue && (
             <div className="text-xs mb-2 text-white/80">
