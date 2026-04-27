@@ -292,55 +292,170 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           }
         }
 
-        // Buildings
+        // BUILDINGS — Detailed Architecture
         renderState.buildings.forEach((b) => {
-          const buildingSize = 42;
-          const buildingIcons: Record<string, string> = {
-            townCenter: 'TC',
-            house: 'H',
-            farm: 'F',
-            mine: 'M',
-            lumber_camp: 'LC',
-            mill: 'ML',
-            barracks: 'BR',
-          };
+          const size = 42;
           const isSelected = renderState.selectedIds.includes(b.id);
-          ctx.save();
+          const cx = b.position.x + size / 2;
+          const cy = b.position.y + size / 2;
+
+          // Selection glow
           if (isSelected) {
+            ctx.save();
             ctx.shadowColor = '#fbbf24';
-            ctx.shadowBlur = 15;
-          } else if (b.owner === 'player') {
-            ctx.shadowColor = '#1e40af';
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(b.position.x - 4, b.position.y - 4, size + 8, size + 8);
+            ctx.restore();
           }
-          ctx.fillStyle = b.owner === 'player' ? '#1e40af' : '#991b1b';
-          ctx.fillRect(b.position.x, b.position.y, buildingSize, buildingSize);
-          ctx.lineWidth = isSelected ? 3 : 2;
-          ctx.strokeStyle = isSelected ? '#fbbf24' : b.owner === 'player' ? '#60a5fa' : '#f87171';
-          ctx.strokeRect(b.position.x, b.position.y, buildingSize, buildingSize);
-          ctx.shadowBlur = 0;
 
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 12px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(buildingIcons[b.type] ?? '?', b.position.x + buildingSize / 2, b.position.y + buildingSize / 2);
-          ctx.strokeStyle = b.owner === 'player' ? '#93c5fd' : '#fca5a5';
-          ctx.lineWidth = 2;
+          // Building base shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
           ctx.beginPath();
-          ctx.arc(b.position.x + buildingSize / 2, b.position.y + buildingSize / 2, buildingSize / 2 + 4, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.ellipse(cx, b.position.y + size + 3, size * 0.6, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
 
+          ctx.save();
+
+          // Building-specific art
+          if (b.type === 'townCenter') {
+            // Castle-like base
+            ctx.fillStyle = b.owner === 'player' ? '#475569' : '#7f1d1d';
+            ctx.fillRect(b.position.x + 4, b.position.y + 12, size - 8, size - 12);
+            // Towers
+            ctx.fillStyle = b.owner === 'player' ? '#334155' : '#991b1b';
+            ctx.fillRect(b.position.x, b.position.y, 10, 20);
+            ctx.fillRect(b.position.x + size - 10, b.position.y, 10, 20);
+            // Flag
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, b.position.y);
+            ctx.lineTo(cx, b.position.y - 14);
+            ctx.stroke();
+            ctx.fillStyle = b.owner === 'player' ? '#3b82f6' : '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(cx, b.position.y - 14);
+            ctx.lineTo(cx + 10, b.position.y - 10);
+            ctx.lineTo(cx, b.position.y - 6);
+            ctx.fill();
+          } else if (b.type === 'house') {
+            // Hut shape
+            ctx.fillStyle = '#d4a373';
+            ctx.fillRect(b.position.x + 6, b.position.y + 16, size - 12, size - 16);
+            // Roof
+            ctx.fillStyle = b.owner === 'player' ? '#3b82f6' : '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(b.position.x, b.position.y + 16);
+            ctx.lineTo(cx, b.position.y);
+            ctx.lineTo(b.position.x + size, b.position.y + 16);
+            ctx.closePath();
+            ctx.fill();
+            // Door
+            ctx.fillStyle = '#5c4033';
+            ctx.fillRect(cx - 5, b.position.y + 26, 10, 16);
+          } else if (b.type === 'farm') {
+            // Field with crops
+            ctx.fillStyle = '#65a30d';
+            ctx.fillRect(b.position.x + 2, b.position.y + 18, size - 4, size - 18);
+            // Crops rows
+            ctx.fillStyle = '#84cc16';
+            for (let i = 0; i < 3; i++) {
+              ctx.fillRect(b.position.x + 6, b.position.y + 22 + i * 7, size - 12, 3);
+            }
+            // Scarecrow / post
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(cx - 1, b.position.y + 6, 2, 14);
+            ctx.fillStyle = '#fcd34d';
+            ctx.beginPath();
+            ctx.arc(cx, b.position.y + 6, 4, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (b.type === 'mine') {
+            // Cave/rock entrance
+            ctx.fillStyle = '#57534e';
+            ctx.fillRect(b.position.x + 2, b.position.y + 10, size - 4, size - 10);
+            ctx.fillStyle = '#1c1917';
+            ctx.beginPath();
+            ctx.arc(cx, b.position.y + 28, 12, 0, Math.PI, false);
+            ctx.fill();
+            // Gold sparkle
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(cx - 6, b.position.y + 20, 2, 0, Math.PI * 2);
+            ctx.arc(cx + 8, b.position.y + 24, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (b.type === 'lumber_camp') {
+            // Logs stacked
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(b.position.x + 4, b.position.y + 20, size - 8, 6);
+            ctx.fillRect(b.position.x + 8, b.position.y + 14, size - 16, 6);
+            ctx.fillRect(b.position.x + 6, b.position.y + 26, size - 12, 6);
+            // Saw
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(cx - 1, b.position.y + 8, 2, 12);
+            ctx.beginPath();
+            ctx.moveTo(cx - 6, b.position.y + 8);
+            ctx.lineTo(cx + 6, b.position.y + 8);
+            ctx.lineTo(cx, b.position.y + 4);
+            ctx.fill();
+          } else if (b.type === 'mill') {
+            // Building
+            ctx.fillStyle = '#e7e5e4';
+            ctx.fillRect(b.position.x + 10, b.position.y + 18, size - 20, size - 18);
+            // Windmill blades
+            ctx.save();
+            ctx.translate(cx, b.position.y + 14);
+            ctx.rotate(performance.now() * 0.002);
+            ctx.fillStyle = '#fcd34d';
+            for (let i = 0; i < 4; i++) {
+              ctx.rotate(Math.PI / 2);
+              ctx.fillRect(-2, -12, 4, 12);
+            }
+            ctx.restore();
+            ctx.fillStyle = '#78716c';
+            ctx.beginPath();
+            ctx.arc(cx, b.position.y + 14, 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (b.type === 'barracks') {
+            // Tent/barracks
+            ctx.fillStyle = '#7c2d12';
+            ctx.beginPath();
+            ctx.moveTo(b.position.x, b.position.y + size);
+            ctx.lineTo(cx, b.position.y + 4);
+            ctx.lineTo(b.position.x + size, b.position.y + size);
+            ctx.closePath();
+            ctx.fill();
+            // Banner
+            ctx.fillStyle = b.owner === 'player' ? '#3b82f6' : '#ef4444';
+            ctx.fillRect(cx - 3, b.position.y + 12, 6, 14);
+          } else {
+            // Fallback
+            ctx.fillStyle = b.owner === 'player' ? '#1e40af' : '#991b1b';
+            ctx.fillRect(b.position.x, b.position.y, size, size);
+          }
+
+          // Owner border
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = b.owner === 'player' ? '#60a5fa' : '#f87171';
+          ctx.strokeRect(b.position.x, b.position.y, size, size);
+
+          // HP Bar (styled)
           const hpPct = Math.max(0, Math.min(1, b.hp / Math.max(1, b.maxHp)));
-          ctx.fillStyle = '#7f1d1d';
-          ctx.fillRect(b.position.x, b.position.y - 8, buildingSize, 5);
-          ctx.fillStyle = hpPct > 0.5 ? '#22c55e' : hpPct > 0.25 ? '#eab308' : '#ef4444';
-          ctx.fillRect(b.position.x, b.position.y - 8, buildingSize * hpPct, 5);
+          const barW = size;
+          const barH = 5;
+          const barY = b.position.y - 10;
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(b.position.x, barY, barW, barH);
+          ctx.fillStyle = hpPct > 0.6 ? '#22c55e' : hpPct > 0.3 ? '#eab308' : '#ef4444';
+          ctx.fillRect(b.position.x + 1, barY + 1, (barW - 2) * hpPct, barH - 2);
+
           ctx.restore();
         });
 
-        // Units
+        // UNITS — Real Character Art
         renderState.units.forEach((u) => {
+          // Fog check for enemies
           if (u.owner === 'enemy') {
             const tx = Math.floor((u.position.x + 16) / FOG_TILE_SIZE);
             const ty = Math.floor((u.position.y + 16) / FOG_TILE_SIZE);
@@ -348,6 +463,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
             if (tx < 0 || ty < 0 || tx >= width || ty >= height) return;
             if (tiles[ty * width + tx] !== 2) return;
           }
+
           let anim = unitAnimations.get(u.id);
           if (!anim) {
             anim = { currentAnim: 'idle', frameIndex: 0, frameTimer: 0, facingRight: true };
@@ -356,68 +472,310 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           const desiredState = deriveAnimationState(u);
           setAnimation(anim, desiredState);
           updateAnimation(anim, dt);
-          if (u.target) {
-            anim.facingRight = u.target.x >= u.position.x;
+          if (u.target) anim.facingRight = u.target.x >= u.position.x;
+
+          const isSelected = renderState.selectedIds.includes(u.id);
+          const cx = u.position.x + 16;
+          const cy = u.position.y + 16;
+          const facing = anim.facingRight ? 1 : -1;
+
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.2)';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + 14, 14, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Selection ring
+          if (isSelected) {
+            ctx.save();
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
           }
 
           ctx.save();
-          ctx.shadowColor = u.owner === 'player' ? '#fde047' : '#fb923c';
-          ctx.shadowBlur = 6;
-          ctx.translate(u.position.x + 16, u.position.y + 16);
-          if (u.target || (u.path && u.pathIndex !== undefined && u.path[u.pathIndex])) {
-            const lookAt = u.target ?? u.path?.[u.pathIndex ?? 0] ?? u.position;
-            const angle = Math.atan2(lookAt.y - u.position.y, lookAt.x - u.position.x);
-            ctx.rotate(angle);
-          }
-          const bobY = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2 : 0;
-          const lungeX = anim.currentAnim === 'attack' ? (anim.frameIndex === 1 ? 6 : 0) : 0;
-          ctx.translate(lungeX, bobY);
-          const unitSize = 36;
-          ctx.beginPath();
-          ctx.arc(0, 0, unitSize / 2, 0, Math.PI * 2);
-          ctx.fillStyle = u.owner === 'player' ? '#3b82f6' : '#ef4444';
-          ctx.fill();
-          ctx.lineWidth = 3;
-          ctx.strokeStyle = u.owner === 'player' ? '#93c5fd' : '#fca5a5';
-          ctx.stroke();
-          ctx.strokeStyle = u.owner === 'player' ? '#dbeafe' : '#fecaca';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, unitSize / 2 + 5, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.translate(cx, cy);
 
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          ctx.moveTo(unitSize / 2 - 2, -4);
-          ctx.lineTo(unitSize / 2 + 4, 0);
-          ctx.lineTo(unitSize / 2 - 2, 4);
-          ctx.closePath();
-          ctx.fill();
-          const typeMarker: Record<string, string> = {
-            villager: 'V',
-            warrior: 'W',
-            archer: 'A',
-            spearman: 'S',
-            cavalry: 'C',
-          };
-          ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 10px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(typeMarker[u.type] ?? '?', 0, 0);
-          if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
-            ctx.strokeStyle = '#ffffff';
+          // Animation offsets
+          const walkBob = anim.currentAnim === 'walk' ? Math.sin(anim.frameIndex * Math.PI) * 2.5 : 0;
+          const attackLunge = anim.currentAnim === 'attack' && anim.frameIndex === 1 ? 4 * facing : 0;
+          const gatherSwing = anim.currentAnim === 'gather' ? Math.sin(performance.now() * 0.008) * 0.3 : 0;
+
+          ctx.translate(attackLunge, walkBob);
+
+          // Team colors
+          const teamPrimary = u.owner === 'player' ? '#2563eb' : '#dc2626';
+          const teamLight = u.owner === 'player' ? '#60a5fa' : '#f87171';
+          const teamDark = u.owner === 'player' ? '#1e3a8a' : '#991b1b';
+
+          if (u.type === 'villager') {
+            // === VILLAGER ===
+            // Body (tunic)
+            ctx.fillStyle = '#d4a373';
+            ctx.fillRect(-7, -4, 14, 14);
+            ctx.strokeStyle = teamPrimary;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-7, -4, 14, 14);
+            // Belt
+            ctx.fillStyle = teamPrimary;
+            ctx.fillRect(-7, 4, 14, 3);
+            // Head
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(0, -10, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#7c2d12';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Hair
+            ctx.fillStyle = '#451a03';
+            ctx.beginPath();
+            ctx.arc(0, -12, 7, Math.PI, 0);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-2 * facing, -10, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Tool (axe)
+            ctx.save();
+            ctx.translate(10 * facing, 2);
+            ctx.rotate(gatherSwing + (facing === -1 ? Math.PI : 0));
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(-1, -8, 2, 14);
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(-1, -8);
+            ctx.lineTo(6, -10);
+            ctx.lineTo(5, -4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          } else if (u.type === 'warrior') {
+            // === WARRIOR ===
+            // Body (armor)
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(-9, -6);
+            ctx.lineTo(9, -6);
+            ctx.lineTo(7, 12);
+            ctx.lineTo(-7, 12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = teamLight;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Chest plate
+            ctx.fillStyle = teamPrimary;
+            ctx.fillRect(-4, -2, 8, 8);
+            // Head (helmet)
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.arc(0, -12, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Helmet crest
+            ctx.fillStyle = teamPrimary;
+            ctx.fillRect(-2, -22, 4, 6);
+            // Eyes (visor slit)
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-4 * facing, -13, 5 * facing, 2);
+            // Shield
+            ctx.fillStyle = teamDark;
+            ctx.beginPath();
+            ctx.moveTo(-12 * facing, 0);
+            ctx.lineTo(-6 * facing, -6);
+            ctx.lineTo(-6 * facing, 10);
+            ctx.lineTo(-12 * facing, 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            // Sword
+            ctx.save();
+            ctx.translate(10 * facing, 0);
+            ctx.rotate(anim.currentAnim === 'attack' && anim.frameIndex === 1 ? -0.8 * facing : -0.2 * facing);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(-1, -14, 2, 18);
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(-3, 2, 6, 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(0, -16, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          } else if (u.type === 'archer') {
+            // === ARCHER ===
+            // Body (leather)
+            ctx.fillStyle = '#65a30d';
+            ctx.fillRect(-6, -4, 12, 14);
+            ctx.strokeStyle = teamPrimary;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-6, -4, 12, 14);
+            // Hood
+            ctx.fillStyle = '#3f6212';
+            ctx.beginPath();
+            ctx.arc(0, -10, 8, 0, Math.PI * 2);
+            ctx.fill();
+            // Face
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(0, -9, 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(2 * facing, -9, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Bow
+            ctx.save();
+            ctx.translate(-8 * facing, 0);
+            ctx.strokeStyle = '#92400e';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(0, 0, 18, -Math.PI / 3, Math.PI / 3);
+            ctx.arc(0, 0, 12, -Math.PI / 2, Math.PI / 2);
             ctx.stroke();
+            // Bowstring
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -12);
+            ctx.lineTo(anim.currentAnim === 'attack' ? 8 * facing : 0, 0);
+            ctx.lineTo(0, 12);
+            ctx.stroke();
+            ctx.restore();
+            // Quiver
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(6 * facing, -8, 4, 12);
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(8 * facing, -10, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (u.type === 'spearman') {
+            // === SPEARMAN ===
+            // Body
+            ctx.fillStyle = '#78716c';
+            ctx.fillRect(-7, -4, 14, 14);
+            ctx.strokeStyle = teamPrimary;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-7, -4, 14, 14);
+            // Head
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(0, -10, 7, 0, Math.PI * 2);
+            ctx.fill();
+            // Helmet
+            ctx.fillStyle = '#57534e';
+            ctx.beginPath();
+            ctx.arc(0, -11, 7, Math.PI, 0);
+            ctx.fill();
+            // Plume
+            ctx.fillStyle = teamPrimary;
+            ctx.beginPath();
+            ctx.moveTo(0, -20);
+            ctx.lineTo(-3, -14);
+            ctx.lineTo(3, -14);
+            ctx.closePath();
+            ctx.fill();
+            // Spear (long)
+            ctx.save();
+            ctx.translate(10 * facing, -4);
+            ctx.rotate(anim.currentAnim === 'attack' && anim.frameIndex === 1 ? -0.5 * facing : -0.1 * facing);
+            ctx.fillStyle = '#92400e';
+            ctx.fillRect(-1, -22, 2, 32);
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(-3, -22);
+            ctx.lineTo(3, -22);
+            ctx.lineTo(0, -30);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+            // Shield (round)
+            ctx.fillStyle = teamDark;
+            ctx.beginPath();
+            ctx.arc(-10 * facing, 4, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          } else if (u.type === 'cavalry') {
+            // === CAVALRY (Horse + Rider) ===
+            // Horse body
+            ctx.fillStyle = '#57534e';
+            ctx.fillRect(-14, 0, 28, 12);
+            // Horse head
+            ctx.beginPath();
+            ctx.moveTo(14 * facing, 2);
+            ctx.lineTo(22 * facing, -4);
+            ctx.lineTo(22 * facing, 6);
+            ctx.lineTo(14 * facing, 8);
+            ctx.closePath();
+            ctx.fill();
+            // Horse legs
+            ctx.fillStyle = '#44403c';
+            ctx.fillRect(-10, 10, 4, 8);
+            ctx.fillRect(-2, 10, 4, 8);
+            ctx.fillRect(6, 10, 4, 8);
+            ctx.fillRect(12, 10, 4, 8);
+            // Rider body
+            ctx.fillStyle = teamPrimary;
+            ctx.fillRect(-6, -12, 12, 12);
+            // Rider head
+            ctx.fillStyle = '#fca5a5';
+            ctx.beginPath();
+            ctx.arc(0, -18, 6, 0, Math.PI * 2);
+            ctx.fill();
+            // Helmet
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.arc(0, -19, 6, Math.PI, 0);
+            ctx.fill();
+            // Sword
+            ctx.save();
+            ctx.translate(8 * facing, -6);
+            ctx.rotate(-0.3 * facing);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(-1, -10, 2, 14);
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(0, -12, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
           }
+
           ctx.restore();
+
+          // HP Bar above unit
           const hpPct = Math.max(0, Math.min(1, u.hp / Math.max(1, u.maxHp)));
-          ctx.fillStyle = '#7f1d1d';
-          ctx.fillRect(u.position.x - 2, u.position.y - 8, 36, 4);
-          ctx.fillStyle = '#22c55e';
-          ctx.fillRect(u.position.x - 2, u.position.y - 8, 36 * hpPct, 4);
+          const barW = 32;
+          const barH = 4;
+          const barX = cx - barW / 2;
+          const barY = u.position.y - 14;
+
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+          ctx.fillStyle = hpPct > 0.6 ? '#22c55e' : hpPct > 0.3 ? '#eab308' : '#ef4444';
+          ctx.fillRect(barX, barY, barW * hpPct, barH);
+
+          // Attack flash
+          if (anim.currentAnim === 'attack' && anim.frameIndex === 1) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
         });
         const activeIds = new Set(renderState.units.map((u) => u.id));
         for (const key of unitAnimations.keys()) {
