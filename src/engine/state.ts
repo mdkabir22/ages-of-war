@@ -25,7 +25,7 @@ function getUnitCombatStats(age: Age, type: Unit['type']) {
   return getUnitStatsForAge(age, type);
 }
 
-function getUnitTrainingSpec(age: Age, type: Unit['type']) {
+export function getUnitTrainingSpec(age: Age, type: Unit['type']) {
   const ageTier = AGE_ORDER.indexOf(age);
   if (type === 'villager') {
     return {
@@ -356,7 +356,7 @@ export const useGameStore = create<GameStore>((set) => ({
       const tile = getTileAt(s.terrain, x, y);
       if (!tile) return s;
       if (!TERRAIN_EFFECTS[tile.type].canBuild) return s;
-      const overlaps = s.buildings.some((b) => distance(b.position, { x, y }) < 40);
+      const overlaps = s.buildings.some((b) => distance(b.position, { x, y }) < 50);
       if (overlaps) return s;
       const cost = BUILDING_COSTS[type];
       const canAfford =
@@ -622,6 +622,7 @@ export const useGameStore = create<GameStore>((set) => ({
         let unit = u;
         const moveMult = getTerrainMoveSpeedMultiplier(s, u.position);
         if (u.owner === 'enemy' && !u.target) {
+          if (u.type === 'villager') return u;
           const baseSpeed = Math.max(60, u.speed * 12) * moveMult;
           const nextPos = { x: u.position.x - dt * baseSpeed, y: u.position.y };
           const nextTile = getTileAt(s.terrain, nextPos.x, nextPos.y);

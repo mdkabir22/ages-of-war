@@ -1,182 +1,169 @@
 import { useGameStore } from '../engine/state';
 import { AGES, AGE_ORDER } from '../engine/types';
 
-export function HUD() {
-  const {
-    resources,
-    currentAge,
-    selectedIds,
-    buildings,
-    productionQueues,
-    spawnUnit,
-    advanceAge,
-    mission,
-    missionStatus,
-    wavesSurvived,
-    missionElapsedSec,
-  } = useGameStore();
-  const selectedBuilding = selectedIds.length > 0
-    ? buildings.find((b) => b.id === selectedIds[0])
-    : undefined;
-  const populationUsed = useGameStore((s) => s.units.filter((u) => u.owner === 'player').length);
-  const populationCap = useGameStore(
-    (s) => 10 + s.buildings.filter((b) => b.owner === 'player' && b.type === 'house').length * 5
-  );
-  const selectedQueue = selectedBuilding
-    ? productionQueues.find((q) => q.buildingId === selectedBuilding.id)
-    : undefined;
+export function HUD({ onPause }: { onPause: () => void }) {
+  const state = useGameStore();
+
+  const currentAge = state.currentAge;
+  const nextAgeIndex = AGE_ORDER.indexOf(currentAge) + 1;
+  const nextAge = AGE_ORDER[nextAgeIndex];
+  const nextAgeCost = nextAge ? AGES[nextAge].cost : null;
+  const ageTier = AGE_ORDER.indexOf(currentAge);
+
+  const elapsedMin = Math.floor(state.missionElapsedSec / 60);
+  const elapsedSec = state.missionElapsedSec % 60;
+
+  const playerUnits = state.units.filter((u) => u.owner === 'player');
+  const enemyUnits = state.units.filter((u) => u.owner === 'enemy');
+  const playerUnitCount = playerUnits.length;
+  const enemyUnitCount = enemyUnits.length;
+  const combatPlayerUnits = playerUnits.filter((u) => u.type !== 'villager').length;
+  const movingPlayerUnits = playerUnits.filter((u) => !!u.target).length;
+
+  const populationUsed = playerUnitCount;
+  const populationCap = 10 + state.buildings.filter((b) => b.owner === 'player' && b.type === 'house').length * 5;
+
+  const selectedBuilding = state.buildings.find((b) => state.selectedIds.includes(b.id) && b.owner === 'player');
+  const selectedQueue = state.productionQueues.find((q) => q.buildingId === selectedBuilding?.id);
   const queueHead = selectedQueue?.queue[0];
-  const ageOrder = AGE_ORDER;
-  const ageTier = ageOrder.indexOf(currentAge);
+
+  const canAffordAgeUp = nextAgeCost
+    ? Object.entries(nextAgeCost).every(([res, amount]) => state.resources[res as keyof typeof state.resources] >= amount)
+    : false;
+
   const villagerFoodCost = 45 + ageTier * 5;
   const warriorFoodCost = 60 + ageTier * 10;
   const warriorGoldCost = 20 + ageTier * 10;
-  const nextAge = ageOrder[ageOrder.indexOf(currentAge) + 1];
-  const canAdvance = nextAge
-    ? Object.entries(AGES[nextAge].cost).every(([res, amount]) => resources[res as keyof typeof resources] >= amount)
-    : false;
-  const enemyTownCenter = buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
-  const playerUnitsCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player').length);
-  const movingPlayerUnits = useGameStore((s) =>
-    s.units.reduce((count, u) => count + (u.owner === 'player' && u.target ? 1 : 0), 0)
-  );
-  const combatPlayerUnits = useGameStore((s) =>
-    s.units.reduce((count, u) => count + (u.owner === 'player' && u.type !== 'villager' ? 1 : 0), 0)
-  );
-  const selectionHasBuilding = Boolean(selectedBuilding);
-  const canTrainVillager = resources.food >= villagerFoodCost && populationUsed < populationCap;
   const canTrainWarrior =
-    resources.food >= warriorFoodCost &&
-    resources.gold >= warriorGoldCost &&
+    state.resources.food >= warriorFoodCost &&
+    state.resources.gold >= warriorGoldCost &&
     populationUsed < populationCap;
-  const economyProgress = Math.min(1000, resources.gold);
-  const timeLeft = Math.max(0, 300 - missionElapsedSec);
-  const elapsedMin = Math.floor(missionElapsedSec / 60);
-  const elapsedSec = missionElapsedSec % 60;
-  const playerUnitCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player').length);
-  const enemyUnitCount = useGameStore((s) => s.units.filter((u) => u.owner === 'enemy').length);
 
-  let missionProgressText = mission.description;
-  if (mission.type === 'survival') {
-    missionProgressText = `Waves survived: ${Math.min(wavesSurvived, 10)}/10`;
-  } else if (mission.type === 'conquest') {
-    const hpPct = enemyTownCenter
-      ? Math.max(0, Math.floor((enemyTownCenter.hp / Math.max(1, enemyTownCenter.maxHp)) * 100))
-      : 0;
-    missionProgressText = enemyTownCenter ? `Enemy TC HP: ${hpPct}%` : 'Enemy Town Center destroyed';
-  } else if (mission.type === 'economy') {
-    missionProgressText = `Gold: ${economyProgress}/1000 | Time Left: ${timeLeft}s`;
-  }
+  const resources = state.resources;
 
   return (
-    <div className="fixed inset-0 z-10 text-white font-mono pointer-events-none text-[13px] leading-tight sm:text-sm">
-      <div className="absolute top-2 right-2 bg-black/85 p-2 rounded-lg border border-yellow-500/50 pointer-events-auto text-right w-44">
-        <div className="text-yellow-300 text-sm font-bold">{AGES[currentAge].name}</div>
-        <div className="text-white/80 text-xs">{elapsedMin}:{String(elapsedSec).padStart(2, '0')}</div>
+    <div className="pointer-events-none absolute inset-0 z-10">
+      <div className="pointer-events-auto absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2 text-white border border-white/10">
+        <div className="text-yellow-400 font-bold">{AGES[currentAge].name}</div>
+        <div className="text-white/60 text-sm">
+          {elapsedMin}:{String(elapsedSec).padStart(2, '0')}
+        </div>
         {nextAge ? (
           <button
-            type="button"
-            onClick={advanceAge}
-            disabled={!canAdvance}
-            className={`mt-2 w-full px-2 py-2 rounded border transition text-xs sm:text-sm ${
-              canAdvance
-                ? 'bg-emerald-500/25 border-emerald-300/40 shadow-[0_0_16px_rgba(16,185,129,0.45)]'
-                : 'bg-zinc-700/30 border-zinc-500/40 opacity-70'
+            onClick={() => useGameStore.getState().advanceAge()}
+            disabled={!canAffordAgeUp}
+            className={`rounded px-3 py-1 text-xs font-bold border ${
+              canAffordAgeUp
+                ? 'bg-yellow-600 hover:bg-yellow-500 border-yellow-400 text-white'
+                : 'bg-gray-800 border-gray-600 text-gray-500 cursor-not-allowed'
             }`}
+            title={`Cost: F${nextAgeCost?.food ?? 0} W${nextAgeCost?.wood ?? 0} S${nextAgeCost?.stone ?? 0} G${nextAgeCost?.gold ?? 0}`}
           >
-            Advance: {AGES[nextAge].name}
+            Age Up -> {AGES[nextAge].name}
           </button>
         ) : (
-          <div className="mt-2 text-emerald-300">Max Age Reached</div>
+          <span className="text-xs text-gray-400">Max Age</span>
+        )}
+        <button
+          onClick={onPause}
+          className="rounded bg-white/10 hover:bg-white/20 px-2 py-1 text-xs border border-white/20"
+        >
+          Pause
+        </button>
+      </div>
+
+      <div className="absolute top-2 left-2 max-w-xs rounded-xl bg-black/80 p-3 text-white border border-white/10">
+        <div className="text-yellow-400 font-bold text-sm">{state.mission.name}</div>
+        <div className="text-white/70 text-xs mt-1">{state.mission.type} mission</div>
+        <div
+          className={`text-xs mt-1 font-bold ${
+            state.missionStatus === 'active'
+              ? 'text-green-400'
+              : state.missionStatus === 'success'
+                ? 'text-emerald-400'
+                : 'text-red-400'
+          }`}
+        >
+          * {state.missionStatus.toUpperCase()}
+        </div>
+        {state.missionStatus === 'active' && state.mission.objectives[0] && (
+          <div className="mt-2 text-xs text-white/80 bg-white/5 rounded px-2 py-1">
+            {state.mission.objectives[0].label}
+          </div>
         )}
       </div>
 
-      <div className="absolute top-2 left-2 bg-black/85 p-2 rounded-lg border border-yellow-500/50 w-56 max-w-[60vw]">
-        <div>
-          <div className="text-yellow-300 font-bold text-sm">{mission.name}</div>
-          <div className="text-xs text-white/85 mt-1">{missionProgressText}</div>
-          <div
-            className={`text-xs mt-1 ${
-              missionStatus === 'active'
-                ? 'text-green-400'
-                : missionStatus === 'success'
-                  ? 'text-emerald-400'
-                  : 'text-red-400'
-            }`}
-          >
-            * {missionStatus}
+      <div className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-2 text-[10px] text-white/60 font-mono border border-white/10">
+        <div>P:{playerUnitCount} E:{enemyUnitCount}</div>
+        <div>Army:{combatPlayerUnits} Move:{movingPlayerUnits}</div>
+        <div>Selected:{state.selectedIds.length}</div>
+      </div>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4 rounded-xl bg-black/85 px-5 py-3 text-white border border-yellow-500/30 pointer-events-auto">
+        <div className="flex items-center gap-1.5">
+          <span>F</span>
+          <span className="text-yellow-300 font-bold text-lg">{Math.floor(resources.food)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>W</span>
+          <span className="text-amber-400 font-bold text-lg">{Math.floor(resources.wood)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>S</span>
+          <span className="text-gray-300 font-bold text-lg">{Math.floor(resources.stone)}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span>G</span>
+          <span className="text-yellow-400 font-bold text-lg">{Math.floor(resources.gold)}</span>
+        </div>
+        <div className="border-l border-white/20 pl-3 flex items-center gap-1.5">
+          <span>P</span>
+          <span className={`font-bold text-lg ${populationUsed >= populationCap ? 'text-red-400' : 'text-white'}`}>
+            {populationUsed}/{populationCap}
+          </span>
+        </div>
+      </div>
+
+      {selectedBuilding && (
+        <div className="pointer-events-auto absolute bottom-4 right-4 w-56 rounded-xl bg-black/85 p-3 text-white border border-white/10">
+          <div className="text-sm font-bold text-blue-300 capitalize mb-2">
+            {selectedBuilding.type.replace(/_/g, ' ')}
           </div>
-          {missionStatus === 'active' && (
-            <div className="mt-1 text-[10px] text-white/75">
-              {mission.objectives[0]?.label ?? 'Complete mission'}
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="absolute top-16 right-2 bg-black/80 px-2 py-1 rounded border border-cyan-400/40 text-[11px] text-cyan-200">
-        LOG P:{playerUnitCount} E:{enemyUnitCount}
-      </div>
-
-      <div className="absolute top-20 left-2 bg-black/80 px-2 py-1 rounded border border-slate-300/40 text-[11px] text-white/90">
-        <div>Activity</div>
-        <div>P Units: {playerUnitsCount} | Army: {combatPlayerUnits}</div>
-        <div>Moving: {movingPlayerUnits} | Selected: {selectedIds.length}</div>
-      </div>
-
-      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/85 p-2 rounded-xl border border-yellow-500/35 flex gap-3 text-xs sm:text-sm pointer-events-auto">
-        <div className="flex items-center gap-1">
-          <span className="text-white/80">FOOD</span>
-          <span className="text-yellow-300 font-bold text-base sm:text-lg">{Math.floor(resources.food)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-white/80">WOOD</span>
-          <span className="text-amber-400 font-bold text-base sm:text-lg">{Math.floor(resources.wood)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-white/80">STONE</span>
-          <span className="text-gray-300 font-bold text-base sm:text-lg">{Math.floor(resources.stone)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-white/80">GOLD</span>
-          <span className="text-yellow-400 font-bold text-base sm:text-lg">{Math.floor(resources.gold)}</span>
-        </div>
-        <div className="border-l border-white/20 pl-2 flex items-center gap-1">
-          <span className="text-white/80">POP</span>
-          <span className="text-white font-bold text-base sm:text-lg">{populationUsed}/{populationCap}</span>
-        </div>
-      </div>
-
-      {selectionHasBuilding && selectedBuilding && (
-        <div className="absolute bottom-24 right-2 pointer-events-auto bg-black/85 p-2 rounded border border-war-gold min-w-52 max-w-[56vw]">
-          <div className="text-sm mb-2">Building: {selectedBuilding.type}</div>
           {selectedQueue && (
-            <div className="text-xs mb-2 text-white/80">
+            <div className="text-xs text-white/70 mb-2">
               Queue: {selectedQueue.queue.length}
-              {queueHead ? ` | ${Math.floor((queueHead.progress / Math.max(1, queueHead.totalTime)) * 100)}%` : ''}
+              {queueHead && (
+                <span className="text-yellow-300 ml-1">
+                  | {Math.floor((queueHead.progress / Math.max(1, queueHead.totalTime)) * 100)}%
+                </span>
+              )}
             </div>
           )}
-          <button
-            type="button"
-            className="w-full px-3 py-2 rounded bg-amber-500/25 border border-amber-300/40 disabled:opacity-50"
-            disabled={!canTrainVillager}
-            onClick={() => spawnUnit(selectedBuilding.id, 'villager')}
-          >
-            Spawn Villager ({villagerFoodCost} Food)
-          </button>
-          <button
-            type="button"
-            className="mt-2 w-full px-3 py-2 rounded bg-sky-500/25 border border-sky-300/40 disabled:opacity-50"
-            disabled={!canTrainWarrior}
-            onClick={() => spawnUnit(selectedBuilding.id, 'warrior')}
-          >
-            Queue Warrior ({warriorFoodCost} Food, {warriorGoldCost} Gold)
-          </button>
+
+          {selectedBuilding.type === 'barracks' || selectedBuilding.type === 'townCenter' ? (
+            <div className="space-y-2">
+              <button
+                onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'villager')}
+                disabled={populationUsed >= populationCap || state.resources.food < villagerFoodCost}
+                className="w-full rounded bg-green-700 hover:bg-green-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-green-500/30"
+              >
+                Train Villager ({villagerFoodCost}F)
+              </button>
+              <button
+                onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'warrior')}
+                disabled={!canTrainWarrior}
+                className="w-full rounded bg-red-700 hover:bg-red-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-red-500/30"
+              >
+                Train Warrior ({warriorFoodCost}F {warriorGoldCost}G)
+              </button>
+            </div>
+          ) : null}
+
           {populationUsed >= populationCap && (
-            <div className="mt-2 text-xs text-rose-300">Population cap reached. Build houses.</div>
-          )}
-          {!canTrainWarrior && populationUsed < populationCap && (
-            <div className="mt-1 text-xs text-white/70">Need more food/gold for warrior.</div>
+            <div className="mt-2 text-[10px] text-red-400 bg-red-950/50 rounded px-2 py-1">
+              Population cap reached. Build houses.
+            </div>
           )}
         </div>
       )}

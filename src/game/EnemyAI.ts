@@ -1,5 +1,5 @@
 import { getAgeTier, getUnitStatsForAge } from '../engine/types';
-import type { Building, GameState, Position, Unit } from '../engine/types';
+import type { GameState, Position, Unit } from '../engine/types';
 
 let decisionTick = 0;
 
@@ -62,15 +62,24 @@ function tickEnemyEconomy(state: GameState, dt: number): void {
   const aliveEnemyVillagers = state.units.filter(
     (u) => u.owner === 'enemy' && u.type === 'villager' && u.hp > 0
   ).length;
-  state.enemyEconomy.villagers = Math.min(state.enemyEconomy.villagers, aliveEnemyVillagers);
+  const workingVillagers = Math.min(state.enemyEconomy.villagers, aliveEnemyVillagers);
+  state.enemyEconomy.villagers = workingVillagers;
+  if (workingVillagers <= 0) return;
+
   const hasEnemyLumberCamp = state.enemyEconomy.buildings.includes('lumber_camp');
   const hasEnemyMill = state.enemyEconomy.buildings.includes('mill');
+  const hasEnemyMine = state.enemyEconomy.buildings.includes('mine');
+  const hasEnemyFarm = state.enemyEconomy.buildings.includes('farm');
+
   const woodDropOffMult = hasEnemyLumberCamp ? 1.5 : 1;
   const foodDropOffMult = hasEnemyMill ? 1.5 : 1;
-  state.enemyEconomy.resources.wood += state.enemyEconomy.villagers * 2 * woodDropOffMult * dt;
-  state.enemyEconomy.resources.food += state.enemyEconomy.villagers * 2.5 * foodDropOffMult * dt;
-  state.enemyEconomy.resources.gold += state.enemyEconomy.villagers * 1.5 * dt;
-  state.enemyEconomy.resources.stone += state.enemyEconomy.villagers * 1 * dt;
+  const mineSupportMult = 1 + Math.min(0.15 * (hasEnemyMine ? 1 : 0), 0.45);
+  const farmSupportMult = 1 + Math.min(0.2 * (hasEnemyFarm ? 1 : 0), 0.6);
+
+  state.enemyEconomy.resources.wood += workingVillagers * 1.2 * woodDropOffMult * dt;
+  state.enemyEconomy.resources.food += workingVillagers * 1.5 * farmSupportMult * foodDropOffMult * dt;
+  state.enemyEconomy.resources.gold += workingVillagers * 1.0 * mineSupportMult * dt;
+  state.enemyEconomy.resources.stone += workingVillagers * 1.1 * mineSupportMult * dt;
 }
 
 function enemyBuildDecision(state: GameState): void {
@@ -126,15 +135,15 @@ function getUnitCost(ageTier: number, unitType: Unit['type']) {
 function enemyTrainDecision(state: GameState, plan: GameState['aiPlan']): Unit[] {
   const newUnits: Unit[] = [];
   const ageTier = getAgeTier(state.currentAge);
+  const enemyTC = state.buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
   const comp = compositionForPlan(plan);
   for (const unitType of comp) {
     const cost = getUnitCost(ageTier, unitType);
     if (!canAfford(state.enemyEconomy.resources, cost)) continue;
     state.enemyEconomy.resources = spendResources(state.enemyEconomy.resources, cost);
     const stats = getUnitStatsForAge(state.currentAge, unitType);
-    const spawnX = state.camera.x + window.innerWidth + 120 + Math.random() * 180;
-    const lane = Math.floor(Math.random() * 3);
-    const spawnY = 120 + lane * 120 + Math.random() * 24;
+    const spawnX = enemyTC ? enemyTC.position.x + 40 + Math.random() * 120 : 1000;
+    const spawnY = enemyTC ? enemyTC.position.y + Math.random() * 80 : 120 + Math.random() * 200;
     const startPos = { x: spawnX, y: spawnY };
     const target = nearestPlayerTarget(state, startPos);
     newUnits.push({
@@ -155,70 +164,6 @@ function enemyTrainDecision(state: GameState, plan: GameState['aiPlan']): Unit[]
   return newUnits;
 }
 
-function syncEnemyVillagerUnits(state: GameState): void {
-  const desired = state.enemyEconomy.villagers;
-  const aliveVillagers = state.units.filter((u) => u.owner === 'enemy' && u.type === 'villager' && u.hp > 0);
-  if (aliveVillagers.length < desired) {
-    const needed = desired - aliveVillagers.length;
-    const stats = getUnitStatsForAge(state.currentAge, 'villager');
-    for (let i = 0; i < needed; i++) {
-      state.units.push({
-        id: crypto.randomUUID(),
-        type: 'villager',
-        position: {
-          x: 980 + Math.random() * 120,
-          y: 120 + Math.random() * 180,
-        },
-        target: {
-          x: 900 + Math.random() * 150,
-          y: 140 + Math.random() * 220,
-        },
-        owner: 'enemy',
-        hp: stats.hp,
-        maxHp: stats.hp,
-        damage: stats.damage,
-        speed: stats.speed,
-        range: stats.range,
-        attackSpeed: stats.attackSpeed,
-        lastAttackTime: 0,
-      });
-    }
-  } else if (aliveVillagers.length > desired) {
-    const removeCount = aliveVillagers.length - desired;
-    let removed = 0;
-    state.units = state.units.filter((u) => {
-      if (removed >= removeCount) return true;
-      if (u.owner === 'enemy' && u.type === 'villager') {
-        removed += 1;
-        return false;
-      }
-      return true;
-    });
-  }
-}
-
-function syncEnemyBuildings(state: GameState): void {
-  const expected = state.enemyEconomy.buildings.filter((b) => b !== 'townCenter');
-  const already = new Set(
-    state.buildings
-      .filter((b) => b.owner === 'enemy')
-      .map((b) => b.type)
-  );
-  for (const type of expected) {
-    if (already.has(type)) continue;
-    const posY = 140 + Math.random() * 240;
-    const building: Building = {
-      id: crypto.randomUUID(),
-      type,
-      owner: 'enemy',
-      position: { x: 960 + Math.random() * 220, y: posY },
-      hp: 140,
-      maxHp: 140,
-    };
-    state.buildings.push(building);
-  }
-}
-
 export function startEnemyAI(
   _getState: () => GameState,
   setState: (updater: (state: GameState) => GameState) => void
@@ -227,14 +172,72 @@ export function startEnemyAI(
     decisionTick += 1;
     setState((state) => {
       const aiPlan = choosePlan(state);
-      syncEnemyVillagerUnits(state);
-      tickEnemyEconomy(state, 10);
-      enemyBuildDecision(state);
-      syncEnemyBuildings(state);
-      const newlyTrained = enemyTrainDecision(state, aiPlan);
-      const nextUnits = [...state.units, ...newlyTrained];
+      const nextEnemyEco: GameState['enemyEconomy'] = {
+        resources: { ...state.enemyEconomy.resources },
+        villagers: state.enemyEconomy.villagers,
+        buildings: [...state.enemyEconomy.buildings],
+      };
+      const ecoState: GameState = {
+        ...state,
+        enemyEconomy: nextEnemyEco,
+      };
 
-      const nextWaves = state.wavesSurvived + 1;
+      tickEnemyEconomy(ecoState, 10);
+      enemyBuildDecision(ecoState);
+
+      let nextUnits = [...state.units];
+      const desiredVillagers = ecoState.enemyEconomy.villagers;
+      const aliveVillagers = nextUnits.filter((u) => u.owner === 'enemy' && u.type === 'villager' && u.hp > 0);
+      if (aliveVillagers.length < desiredVillagers) {
+        const needed = desiredVillagers - aliveVillagers.length;
+        const stats = getUnitStatsForAge(state.currentAge, 'villager');
+        for (let i = 0; i < needed; i++) {
+          nextUnits.push({
+            id: crypto.randomUUID(),
+            type: 'villager',
+            position: { x: 980 + Math.random() * 120, y: 120 + Math.random() * 180 },
+            target: { x: 900 + Math.random() * 150, y: 140 + Math.random() * 220 },
+            owner: 'enemy',
+            hp: stats.hp,
+            maxHp: stats.hp,
+            damage: stats.damage,
+            speed: stats.speed,
+            range: stats.range,
+            attackSpeed: stats.attackSpeed,
+            lastAttackTime: 0,
+          });
+        }
+      } else if (aliveVillagers.length > desiredVillagers) {
+        let removed = 0;
+        nextUnits = nextUnits.filter((u) => {
+          if (removed >= aliveVillagers.length - desiredVillagers) return true;
+          if (u.owner === 'enemy' && u.type === 'villager') {
+            removed += 1;
+            return false;
+          }
+          return true;
+        });
+      }
+
+      let nextBuildings = [...state.buildings];
+      const expectedEnemyBuildings = ecoState.enemyEconomy.buildings.filter((b) => b !== 'townCenter');
+      const existingEnemyTypes = new Set(nextBuildings.filter((b) => b.owner === 'enemy').map((b) => b.type));
+      for (const type of expectedEnemyBuildings) {
+        if (existingEnemyTypes.has(type)) continue;
+        nextBuildings.push({
+          id: crypto.randomUUID(),
+          type,
+          owner: 'enemy',
+          position: { x: 960 + Math.random() * 220, y: 140 + Math.random() * 240 },
+          hp: 140,
+          maxHp: 140,
+        });
+      }
+
+      const newlyTrained = enemyTrainDecision({ ...state, enemyEconomy: ecoState.enemyEconomy, buildings: nextBuildings }, aiPlan);
+      nextUnits = [...nextUnits, ...newlyTrained];
+
+      const nextWaves = newlyTrained.length > 0 ? state.wavesSurvived + 1 : state.wavesSurvived;
       const survivalCompleted =
         state.missionStatus === 'active' &&
         state.mission.type === 'survival' &&
@@ -252,12 +255,8 @@ export function startEnemyAI(
         ...state,
         aiPlan,
         units: nextUnits,
-        buildings: [...state.buildings],
-        enemyEconomy: {
-          resources: { ...state.enemyEconomy.resources },
-          villagers: state.enemyEconomy.villagers,
-          buildings: [...state.enemyEconomy.buildings],
-        },
+        buildings: nextBuildings,
+        enemyEconomy: ecoState.enemyEconomy,
         wavesSurvived: nextWaves,
         resources: nextResources,
         missionStatus: survivalCompleted ? 'success' : state.missionStatus,

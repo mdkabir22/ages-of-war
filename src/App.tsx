@@ -90,7 +90,7 @@ export default function App() {
     <div className="relative w-screen h-screen overflow-hidden bg-war-night">
       <GameErrorBoundary key={`${gameKey}-${selectedMode}`}>
         <GameCanvas paused={paused} />
-        <HUD />
+        <HUD onPause={() => setPaused(true)} />
         <Minimap />
         <PauseMenu
           isOpen={paused}

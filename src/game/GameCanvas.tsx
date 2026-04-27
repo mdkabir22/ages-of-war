@@ -172,8 +172,10 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
       const gridX = Math.floor(world.x / 40) * 40;
       const gridY = Math.floor(world.y / 40) * 40;
-      const buildType = e.altKey ? 'mine' : e.shiftKey ? 'house' : 'farm';
-      state.placeBuilding(gridX, gridY, buildType);
+      const buildType = e.altKey ? 'mine' : e.shiftKey ? 'house' : null;
+      if (buildType) {
+        state.placeBuilding(gridX, gridY, buildType);
+      }
       state.setSelectedIds([]);
     };
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -426,7 +428,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           for (let tx = 0; tx < renderState.fog.width; tx++) {
             const tile = renderState.fog.tiles[ty * renderState.fog.width + tx];
             if (tile === 2) continue;
-            ctx.fillStyle = 'rgba(0,0,0,0.00)';
+            ctx.fillStyle = tile === 1 ? 'rgba(10, 15, 30, 0.30)' : 'rgba(5, 10, 20, 0.65)';
             ctx.fillRect(tx * FOG_TILE_SIZE, ty * FOG_TILE_SIZE, FOG_TILE_SIZE, FOG_TILE_SIZE);
           }
         }
