@@ -297,7 +297,6 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
           const size = 42;
           const isSelected = renderState.selectedIds.includes(b.id);
           const cx = b.position.x + size / 2;
-          const cy = b.position.y + size / 2;
 
           // Selection glow
           if (isSelected) {
