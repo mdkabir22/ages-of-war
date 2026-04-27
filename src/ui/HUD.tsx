@@ -59,7 +59,7 @@ export function HUD({ onPause }: { onPause: () => void }) {
             }`}
             title={`Cost: F${nextAgeCost?.food ?? 0} W${nextAgeCost?.wood ?? 0} S${nextAgeCost?.stone ?? 0} G${nextAgeCost?.gold ?? 0}`}
           >
-            Age Up -> {AGES[nextAge].name}
+            Age Up {'>'} {AGES[nextAge].name}
           </button>
         ) : (
           <span className="text-xs text-gray-400">Max Age</span>
