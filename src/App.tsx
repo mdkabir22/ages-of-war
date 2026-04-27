@@ -15,6 +15,18 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState<GameMode>('campaign');
   const [gameKey, setGameKey] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight);
+
+  useEffect(() => {
+    const updateOrientation = () => setIsLandscape(window.innerWidth >= window.innerHeight);
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
+    updateOrientation();
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
+  }, []);
 
   useEffect(() => {
     if (screen !== 'playing') return;
@@ -26,6 +38,15 @@ export default function App() {
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [screen]);
+
+  useEffect(() => {
+    if (screen !== 'playing') return;
+    const orientation = window.screen.orientation;
+    if (!orientation?.lock) return;
+    void orientation.lock('landscape').catch(() => {
+      // Some devices/browsers block orientation lock without fullscreen.
+    });
+  }, [screen, gameKey]);
 
   const startGame = (mode: GameMode) => {
     setSelectedMode(mode);
@@ -44,6 +65,24 @@ export default function App() {
           )
         }
       />
+    );
+  }
+
+  if (!isLandscape) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-white">
+        <div className="text-2xl">Rotate Device</div>
+        <div className="max-w-sm text-sm text-white/80">
+          Is game ko landscape mode me khelna hai. Mobile ko sideways karo, phir game start ho jayega.
+        </div>
+        <button
+          type="button"
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold"
+          onClick={() => setScreen('menu')}
+        >
+          Back to Menu
+        </button>
+      </div>
     );
   }
 

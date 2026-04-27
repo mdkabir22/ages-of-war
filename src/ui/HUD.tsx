@@ -36,9 +36,13 @@ export function HUD() {
     ? Object.entries(AGES[nextAge].cost).every(([res, amount]) => resources[res as keyof typeof resources] >= amount)
     : false;
   const enemyTownCenter = buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
-  const playerUnits = useGameStore((s) => s.units.filter((u) => u.owner === 'player'));
-  const movingPlayerUnits = playerUnits.filter((u) => Boolean(u.target)).length;
-  const combatPlayerUnits = playerUnits.filter((u) => u.type !== 'villager').length;
+  const playerUnitsCount = useGameStore((s) => s.units.filter((u) => u.owner === 'player').length);
+  const movingPlayerUnits = useGameStore((s) =>
+    s.units.reduce((count, u) => count + (u.owner === 'player' && u.target ? 1 : 0), 0)
+  );
+  const combatPlayerUnits = useGameStore((s) =>
+    s.units.reduce((count, u) => count + (u.owner === 'player' && u.type !== 'villager' ? 1 : 0), 0)
+  );
   const selectionHasBuilding = Boolean(selectedBuilding);
   const canTrainVillager = resources.food >= villagerFoodCost && populationUsed < populationCap;
   const canTrainWarrior =
@@ -116,7 +120,7 @@ export function HUD() {
 
       <div className="absolute top-20 left-2 bg-black/80 px-2 py-1 rounded border border-slate-300/40 text-[11px] text-white/90">
         <div>Activity</div>
-        <div>P Units: {playerUnits.length} | Army: {combatPlayerUnits}</div>
+        <div>P Units: {playerUnitsCount} | Army: {combatPlayerUnits}</div>
         <div>Moving: {movingPlayerUnits} | Selected: {selectedIds.length}</div>
       </div>
 
