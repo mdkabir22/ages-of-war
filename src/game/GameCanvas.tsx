@@ -30,6 +30,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
 
     const layoutCanvasSize = () => {
       const vv = window.visualViewport;
+      // Use visualViewport if available (handles mobile address bar)
       const w = Math.max(1, Math.round(vv?.width ?? window.innerWidth));
       const h = Math.max(1, Math.round(vv?.height ?? window.innerHeight));
       if (canvas.width !== w || canvas.height !== h) {
