@@ -2,9 +2,9 @@ import type { Mission } from './mission';
 import type { TerrainTile } from './map';
 
 export type Resource = 'food' | 'wood' | 'stone' | 'gold';
-export type Age = 'stone' | 'bronze' | 'iron' | 'medieval' | 'modern';
+export type Age = 'stone' | 'bronze' | 'iron' | 'medieval' | 'industrial' | 'modern';
 export type UnitType = 'villager' | 'warrior' | 'archer' | 'spearman' | 'cavalry';
-export const AGE_ORDER: Age[] = ['stone', 'bronze', 'iron', 'medieval', 'modern'];
+export const AGE_ORDER: Age[] = ['stone', 'bronze', 'iron', 'medieval', 'industrial', 'modern'];
 
 export interface Position {
   x: number;
@@ -134,6 +134,11 @@ export const AGES: Record<Age, AgeData> = {
     cost: { food: 1000, wood: 800, stone: 600, gold: 400 },
     unlocks: ['townCenter', 'farm', 'house', 'barracks', 'mine', 'lumber_camp', 'mill'],
   },
+  industrial: {
+    name: 'Industrial Age',
+    cost: { food: 1300, wood: 1000, stone: 750, gold: 600 },
+    unlocks: ['townCenter', 'farm', 'house', 'barracks', 'mine', 'lumber_camp', 'mill'],
+  },
   modern: {
     name: 'Modern Age',
     cost: { food: 1600, wood: 1200, stone: 900, gold: 800 },
@@ -169,6 +174,13 @@ export const UNIT_STATS_BY_AGE: Record<Age, Record<UnitType, UnitStats>> = {
     archer: { hp: 110, damage: 20, speed: 5.6, range: 104, attackSpeed: 1.1 },
     spearman: { hp: 150, damage: 20, speed: 5.2, range: 40, attackSpeed: 1.1 },
     cavalry: { hp: 190, damage: 25, speed: 6.9, range: 38, attackSpeed: 1.25 },
+  },
+  industrial: {
+    villager: { hp: 88, damage: 10, speed: 5.1, range: 24, attackSpeed: 1.02 },
+    warrior: { hp: 182, damage: 26, speed: 5.65, range: 39, attackSpeed: 1.175 },
+    archer: { hp: 120, damage: 22, speed: 5.7, range: 107, attackSpeed: 1.125 },
+    spearman: { hp: 160, damage: 22, speed: 5.3, range: 41, attackSpeed: 1.125 },
+    cavalry: { hp: 205, damage: 28, speed: 7.05, range: 39, attackSpeed: 1.275 },
   },
   modern: {
     villager: { hp: 95, damage: 10, speed: 5.2, range: 24, attackSpeed: 1.05 },

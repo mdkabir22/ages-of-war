@@ -22,6 +22,16 @@ export function MainMenu({ onStartGame, onHowToPlay }: MainMenuProps) {
   };
 
   useEffect(() => {
+    const savedLang = localStorage.getItem('aow_language');
+    if (!savedLang) {
+      setLang('en');
+    } else {
+      setLang(savedLang);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial language from storage only
+  }, []);
+
+  useEffect(() => {
     document.documentElement.dir = i18n.language?.startsWith('ur') ? 'rtl' : 'ltr';
   }, [i18n.language]);
 

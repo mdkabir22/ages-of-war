@@ -5,7 +5,8 @@ import { Minimap } from './ui/Minimap';
 import { PauseMenu } from './components/PauseMenu';
 import { audio } from './audio/manager';
 import { MainMenu } from './components/MainMenu';
-import { GameErrorBoundary } from './components/GameErrorBoundary';
+import { RotateDevice } from './components/RotateDevice';
+import { HowToPlay } from './components/HowToPlay';
 import type { GameMode } from './types/game';
 
 type AppScreen = 'menu' | 'playing';
@@ -15,18 +16,8 @@ export default function App() {
   const [selectedMode, setSelectedMode] = useState<GameMode>('campaign');
   const [gameKey, setGameKey] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(() => window.innerWidth >= window.innerHeight);
-
-  useEffect(() => {
-    const updateOrientation = () => setIsLandscape(window.innerWidth >= window.innerHeight);
-    window.addEventListener('resize', updateOrientation);
-    window.addEventListener('orientationchange', updateOrientation);
-    updateOrientation();
-    return () => {
-      window.removeEventListener('resize', updateOrientation);
-      window.removeEventListener('orientationchange', updateOrientation);
-    };
-  }, []);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [gameError, setGameError] = useState<string | null>(null);
 
   useEffect(() => {
     if (screen !== 'playing') return;
@@ -50,47 +41,63 @@ export default function App() {
     });
   }, [screen, gameKey]);
 
+  useEffect(() => {
+    if (screen !== 'playing') return;
+    const onErr = (e: ErrorEvent) => {
+      const msg = [e.message, e.error instanceof Error ? e.error.stack : String(e.error)].filter(Boolean).join('\n');
+      setGameError(msg || 'Unknown error');
+    };
+    const onRej = (e: PromiseRejectionEvent) => {
+      const r = e.reason;
+      const msg = r instanceof Error ? `${r.message}\n${r.stack ?? ''}` : String(r);
+      setGameError(msg || 'Unhandled rejection');
+    };
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onRej);
+    return () => {
+      window.removeEventListener('error', onErr);
+      window.removeEventListener('unhandledrejection', onRej);
+    };
+  }, [screen]);
+
   const startGame = (mode: GameMode) => {
     setSelectedMode(mode);
     setPaused(false);
+    setGameError(null);
     setGameKey((k) => k + 1);
     setScreen('playing');
   };
 
   if (screen === 'menu') {
     return (
-      <MainMenu
-        onStartGame={startGame}
-        onHowToPlay={() =>
-          window.alert(
-            'How to play:\n- Left click select/place\n- Right click move/rally\n- Shift=House, Alt=Mine\n- Esc = Pause'
-          )
-        }
-      />
-    );
-  }
-
-  if (!isLandscape) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-white">
-        <div className="text-2xl">Rotate Device</div>
-        <div className="max-w-sm text-sm text-white/80">
-          Is game ko landscape mode me khelna hai. Mobile ko sideways karo, phir game start ho jayega.
-        </div>
-        <button
-          type="button"
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold"
-          onClick={() => setScreen('menu')}
-        >
-          Back to Menu
-        </button>
-      </div>
+      <>
+        <MainMenu onStartGame={startGame} onHowToPlay={() => setShowHowToPlay(true)} />
+        {showHowToPlay && <HowToPlay onClose={() => setShowHowToPlay(false)} />}
+      </>
     );
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-war-night">
-      <GameErrorBoundary key={`${gameKey}-${selectedMode}`}>
+    <div className="relative w-screen h-screen overflow-hidden bg-slate-900">
+      <RotateDevice onBack={() => setScreen('menu')} />
+
+      {gameError && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 text-white p-4">
+          <div className="bg-red-900/50 border border-red-500 rounded-xl p-6 max-w-md">
+            <h2 className="text-xl font-bold text-red-400 mb-2">Game Error</h2>
+            <pre className="text-xs text-red-200 whitespace-pre-wrap">{gameError}</pre>
+            <button
+              type="button"
+              onClick={() => setScreen('menu')}
+              className="mt-4 px-4 py-2 bg-red-600 rounded-lg font-bold"
+            >
+              Back to Menu
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div key={`${gameKey}-${selectedMode}`}>
         <GameCanvas paused={paused} />
         <HUD onPause={() => setPaused(true)} />
         <Minimap />
@@ -106,7 +113,7 @@ export default function App() {
             setScreen('menu');
           }}
         />
-      </GameErrorBoundary>
+      </div>
     </div>
   );
 }
