@@ -41,8 +41,10 @@ export default function App() {
 
   useEffect(() => {
     if (screen !== 'playing') return;
-    const orientation = window.screen.orientation;
-    if (!orientation?.lock) return;
+    const orientation = window.screen.orientation as ScreenOrientation & {
+      lock?: (orientation: 'portrait' | 'landscape') => Promise<void>;
+    };
+    if (typeof orientation?.lock !== 'function') return;
     void orientation.lock('landscape').catch(() => {
       // Some devices/browsers block orientation lock without fullscreen.
     });
