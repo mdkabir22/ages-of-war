@@ -1,5 +1,5 @@
-import { useGameStore } from '../engine/state';
-import { AGES, AGE_ORDER } from '../engine/types';
+import { useGameStore } from '../core/state';
+import { AGES, AGE_ORDER } from '../core/types';
 
 export function HUD({ onPause }: { onPause: () => void }) {
   const state = useGameStore();

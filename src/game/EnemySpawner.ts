@@ -1,5 +1,5 @@
-import { getUnitStatsForAge } from '../engine/types';
-import type { GameState, Position, Unit } from '../engine/types';
+import { getUnitStatsForAge } from '../core/types';
+import type { GameState, Position, Unit } from '../core/types';
 
 let wave = 0;
 

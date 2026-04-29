@@ -1,5 +1,5 @@
-import { getAgeTier, getUnitStatsForAge } from '../engine/types';
-import type { GameState, Position, Unit } from '../engine/types';
+import { getAgeTier, getUnitStatsForAge } from '../core/types';
+import type { GameState, Position, Unit } from '../core/types';
 
 let decisionTick = 0;
 

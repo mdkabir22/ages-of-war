@@ -17,6 +17,7 @@ const firebaseConfig = {
 const requiredFirebaseEnvMap = {
   VITE_FIREBASE_API_KEY: firebaseConfig.apiKey,
   VITE_FIREBASE_AUTH_DOMAIN: firebaseConfig.authDomain,
+  VITE_FIREBASE_PROJECT_ID: firebaseConfig.projectId,
   VITE_FIREBASE_STORAGE_BUCKET: firebaseConfig.storageBucket,
   VITE_FIREBASE_MESSAGING_SENDER_ID: firebaseConfig.messagingSenderId,
   VITE_FIREBASE_APP_ID: firebaseConfig.appId,
@@ -34,7 +35,7 @@ const hasRequiredFirebaseConfig = missingFirebaseKeys.length === 0;
 if (!hasRequiredFirebaseConfig && typeof window !== 'undefined') {
   console.warn(
     `[firebase] Disabled: missing env keys -> ${missingFirebaseKeys.join(', ')}. ` +
-      'Add them in .env.local to enable auth/firestore features.'
+      'Add them in .env.local or .env.development to enable auth/firestore features.'
   );
 }
 

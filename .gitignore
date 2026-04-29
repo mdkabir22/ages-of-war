@@ -25,3 +25,5 @@ android/
 *.njsproj
 *.sln
 *.sw?
+*.rar
+*.zip

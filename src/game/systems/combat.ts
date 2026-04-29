@@ -5,4 +5,4 @@ export {
   updateAI,
   updateGame,
   upgradeAge,
-} from '../engine';
+} from '../../core/engine';

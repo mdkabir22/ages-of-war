@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState } from '../game/engine';
+import { createInitialState } from '../core/engine';
 import {
   appendSnapshotWithLimit,
   buildDiagnosticsApiBatch,

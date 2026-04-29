@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createInitialState } from './engine';
+import { createInitialState } from '../core/engine';
 import { applyLiveOpsConfig, applyMatchOutcome, DEFAULT_LIVE_OPS_CONFIG } from './progression';
 
 describe('progression match outcome', () => {

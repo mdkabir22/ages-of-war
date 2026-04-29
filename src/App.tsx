@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { GameCanvas } from './game/GameCanvas';
+import { isGameCanvas3DEnabled } from './config/features';
+
+const GameCanvas3D = lazy(() =>
+  import('./game/GameCanvas3D').then((m) => ({ default: m.GameCanvas3D }))
+);
 import { HUD } from './ui/HUD';
 import { Minimap } from './ui/Minimap';
 import { PauseMenu } from './components/PauseMenu';
@@ -98,7 +103,13 @@ export default function App() {
       )}
 
       <div key={`${gameKey}-${selectedMode}`}>
-        <GameCanvas paused={paused} />
+        {isGameCanvas3DEnabled ? (
+          <Suspense fallback={<div className="fixed inset-0 z-0 bg-slate-900" aria-hidden />}>
+            <GameCanvas3D paused={paused} />
+          </Suspense>
+        ) : (
+          <GameCanvas paused={paused} />
+        )}
         <HUD onPause={() => setPaused(true)} />
         <Minimap />
         <PauseMenu
