@@ -32,6 +32,8 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Web production build
+        env:
+          VITE_GAME_3D: "true"
         run: npm run build
 
       # android/ repo mein .gitignore hai — CI har run par generate / sync karti hai
