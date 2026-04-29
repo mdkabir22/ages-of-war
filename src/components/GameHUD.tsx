@@ -3,8 +3,7 @@ import { Pause, Zap, Play, RotateCcw, Home, HelpCircle, ChevronUp, Gem, Rocket, 
 import { Slider } from './ui/slider';
 import type { BattleStance, BuildingType, GameState, LaneFocus } from '../types/game';
 import { AGES, XP_THRESHOLDS } from '../game/ages';
-import { canUpgradeAge } from '../game/engine';
-import { canActivateFortify, canActivateRally } from '../game/engine';
+import { canActivateFortify, canActivateRally, canUpgradeAge } from '../core/engine';
 import { TECH_TREE, canUnlockTech } from '../game/systems/techTree';
 import { canActivateSpeedBoost, canBuyGoldMineUpgrade, canClaimStarterPack, canPurchaseStoreOffer, getGoldMineUpgradeCost, getOfferOfTheDay, STORE_OFFERS } from '../game/monetization';
 import {

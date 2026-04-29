@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createInitialState } from '../game/engine';
+import { createInitialState } from '../core/engine';
 import { buildDiagnosticsApiBatch, buildDiagnosticsSnapshot } from './liveopsDiagnostics';
 import {
   appendUploadToQueue,

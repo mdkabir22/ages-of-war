@@ -7,6 +7,6 @@ export {
   updateAI,
   updateGame,
   upgradeAge,
-} from '../engine';
+} from '../../core/engine';
 
 export { renderGame, preloadImages } from '../renderer';

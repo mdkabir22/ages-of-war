@@ -1,1 +1,1 @@
-export { updateAI } from '../engine';
+export { updateAI } from '../../core/engine';

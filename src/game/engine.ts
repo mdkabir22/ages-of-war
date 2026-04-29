@@ -1,77 +1,36 @@
-import type { GameState, GameUnit, Castle, GameMode, AIProfile, BuildingType, BattleStance, LaneFocus, ResourceStock } from '../types/game';
+import type { GameState, GameUnit, Castle, GameMode, AIProfile, BuildingType, BattleStance, LaneFocus } from '../types/game';
 import { AGES, CASTLE_MAX_HEALTH, GOLD_PER_SECOND, getUnitDamage } from './ages';
 import { getGoldRatePerSecond } from './monetization';
 import { remoteGameConfig } from '../lib/remoteConfig';
-import { DEFAULT_RESOURCE_STATE, canAfford, spendResources, tickResources } from './systems/resources';
+import {
+  activateFortify as activateFortifySystem,
+  activateRally as activateRallySystem,
+  canActivateFortify as canActivateFortifySystem,
+  canActivateRally as canActivateRallySystem,
+} from './systems/abilities';
+import { updateAIDirector } from './systems/aiDirector';
+import { DEFAULT_RESOURCE_STATE, tickResources } from './systems/resources';
 import { BUILDING_DEFINITIONS } from './entities/buildings';
 import { assignVillagerToNode, drainDeliveredResources, tickGathering } from './systems/gathering';
+import {
+  buildStructure as buildStructureSystem,
+  canBuildStructure as canBuildStructureSystem,
+} from './systems/construction';
+import { canTrainUnit, trainUnit } from './systems/training';
 import { TECH_TREE, canUnlockTech } from './systems/techTree';
-import { planAIStrategy } from './ai/strategyPlanner';
 import { applyCampaignPack } from './modes/campaignPacks';
+
+export { canTrainUnit, trainUnit };
 
 let unitIdCounter = 0;
 let buildingIdCounter = 0;
 const LANES = [0.28, 0.5, 0.72];
-let aiLastBossWave = 0;
 const PARTICLE_POOL_LIMIT = 600;
 const PROJECTILE_POOL_LIMIT = 220;
 const FLOATING_TEXT_POOL_LIMIT = 120;
 const particlePool: GameState['particles'] = [];
 const projectilePool: GameState['projectiles'] = [];
 const floatingTextPool: GameState['floatingTexts'] = [];
-const BUILDING_MIN_DISTANCE = 56;
-const BUILDING_LIMITS: Partial<Record<BuildingType, number>> = {
-  town_center: 1,
-  barracks: 4,
-  farm: 8,
-  house: 10,
-  lumber_camp: 4,
-  mill: 4,
-  mine: 5,
-  temple: 2,
-  blacksmith: 2,
-};
-
-function getPopulationCap(state: GameState, isPlayer: boolean): number {
-  const buildings = isPlayer ? state.playerBuildings : state.aiBuildings;
-  let bonus = 0;
-  for (const b of buildings) {
-    bonus += BUILDING_DEFINITIONS[b.type].populationBonus ?? 0;
-  }
-  return 10 + bonus;
-}
-
-function getPopulationUsed(state: GameState, isPlayer: boolean): number {
-  return state.units.filter((u) => u.isPlayer === isPlayer && !u.isDead).length;
-}
-
-export function canTrainUnit(
-  state: GameState,
-  unitCost: Partial<ResourceStock>,
-  isPlayer = true
-): boolean {
-  const cap = getPopulationCap(state, isPlayer);
-  const used = getPopulationUsed(state, isPlayer);
-  if (isPlayer && used >= cap) return false;
-  const stock = isPlayer ? state.playerResources : state.aiResources;
-  return canAfford(stock, unitCost);
-}
-
-export function trainUnit(state: GameState, goldCost: number, isPlayer = true): boolean {
-  const cost: Partial<ResourceStock> = { gold: goldCost };
-  if (!canTrainUnit(state, cost, isPlayer)) return false;
-
-  const updated = spendResources(isPlayer ? state.playerResources : state.aiResources, cost);
-  if (isPlayer) {
-    state.playerResources = updated;
-    state.playerGold = updated.gold;
-    state.currentPopulation += 1;
-  } else {
-    state.aiResources = updated;
-    state.aiGold = updated.gold;
-  }
-  return true;
-}
 
 function allocParticle(
   x: number,
@@ -167,21 +126,6 @@ function generateUnitId(): string {
 
 function generateBuildingId(): string {
   return `building_${++buildingIdCounter}_${Math.random().toString(36).substr(2, 5)}`;
-}
-
-function countPlayerBuildings(state: GameState, isPlayer: boolean, type: BuildingType): number {
-  const list = isPlayer ? state.playerBuildings : state.aiBuildings;
-  return list.filter((b) => b.type === type).length;
-}
-
-function hasBuildingSpace(state: GameState, isPlayer: boolean, x: number, y: number): boolean {
-  const list = isPlayer ? state.playerBuildings : state.aiBuildings;
-  for (const b of list) {
-    const dx = b.x - x;
-    const dy = b.y - y;
-    if (Math.sqrt(dx * dx + dy * dy) < BUILDING_MIN_DISTANCE) return false;
-  }
-  return true;
 }
 
 function getBuildingAdjustedResourceState(
@@ -1486,48 +1430,11 @@ export function updateGame(state: GameState, dt: number, canvasWidth: number, ca
 }
 
 export function canBuildStructure(state: GameState, type: BuildingType, isPlayer: boolean): boolean {
-  const def = BUILDING_DEFINITIONS[type];
-  if (!def) return false;
-  const age = isPlayer ? state.playerAge : state.aiAge;
-  if (age < def.unlockAge) return false;
-  const limit = BUILDING_LIMITS[type];
-  if (limit != null && countPlayerBuildings(state, isPlayer, type) >= limit) return false;
-  const stock = isPlayer ? state.playerResources : state.aiResources;
-  return canAfford(stock, def.cost);
+  return canBuildStructureSystem(state, type, isPlayer);
 }
 
 export function buildStructure(state: GameState, type: BuildingType, isPlayer: boolean): boolean {
-  if (!canBuildStructure(state, type, isPlayer)) return false;
-  const def = BUILDING_DEFINITIONS[type];
-  const spent = spendResources(isPlayer ? state.playerResources : state.aiResources, def.cost);
-  if (isPlayer) {
-    state.playerResources = spent;
-    state.playerGold = spent.gold;
-  } else {
-    state.aiResources = spent;
-    state.aiGold = spent.gold;
-  }
-
-  const baseX = isPlayer ? 150 + Math.random() * 150 : state.aiCastle.x - 140 - Math.random() * 150;
-  const baseY = 105 + Math.random() * 100;
-  if (!hasBuildingSpace(state, isPlayer, baseX, baseY)) {
-    return false;
-  }
-
-  const building = {
-    id: generateBuildingId(),
-    type,
-    level: 1,
-    health: def.maxHealth,
-    maxHealth: def.maxHealth,
-    x: baseX,
-    y: baseY,
-    isPlayer,
-    constructedAt: state.time,
-  };
-  if (isPlayer) state.playerBuildings.push(building);
-  else state.aiBuildings.push(building);
-  return true;
+  return buildStructureSystem(state, type, isPlayer, generateBuildingId);
 }
 
 export function unlockNextTech(state: GameState): string | null {
@@ -1538,7 +1445,7 @@ export function unlockNextTech(state: GameState): string | null {
 }
 
 export function canActivateRally(state: GameState): boolean {
-  return state.time >= state.rallyCooldownUntil;
+  return canActivateRallySystem(state);
 }
 
 export function setPlayerBattleStance(state: GameState, stance: BattleStance): void {
@@ -1550,23 +1457,15 @@ export function setPlayerLaneFocus(state: GameState, focus: LaneFocus): void {
 }
 
 export function activateRally(state: GameState): boolean {
-  if (!canActivateRally(state)) return false;
-  state.rallyUntil = state.time + 10;
-  state.rallyCooldownUntil = state.time + 45;
-  return true;
+  return activateRallySystem(state);
 }
 
 export function canActivateFortify(state: GameState): boolean {
-  return state.time >= state.fortifyCooldownUntil;
+  return canActivateFortifySystem(state);
 }
 
 export function activateFortify(state: GameState): boolean {
-  if (!canActivateFortify(state)) return false;
-  state.fortifyCooldownUntil = state.time + 55;
-  const heal = state.playerCastle.maxHealth * 0.12;
-  state.playerCastle.health = Math.min(state.playerCastle.maxHealth, state.playerCastle.health + heal);
-  state.playerGold += 120;
-  return true;
+  return activateFortifySystem(state);
 }
 
 function getProjectileColor(age: number, unitType: number): string {
@@ -1580,218 +1479,11 @@ function getProjectileColor(age: number, unitType: number): string {
 }
 
 export function updateAI(state: GameState, _dt: number, canvasHeight: number): void {
-  const now = state.time;
-  const director = state.aiDirector;
-  const laneControl = getLaneControl(state, canvasHeight);
-  const weakestLane = laneControl.indexOf(Math.min(...laneControl));
-  const contestedLane = getMostContestedLane(laneControl);
-  const playerCastleRatio = state.playerCastle.health / state.playerCastle.maxHealth;
-  const aiCastleRatio = state.aiCastle.health / state.aiCastle.maxHealth;
-  const playerMomentum = (state.kills / Math.max(1, state.time / 30)) + (playerCastleRatio - aiCastleRatio) * 2;
-  const playerUnitCount = state.units.filter((u) => u.isPlayer && !u.isDead).length;
-  const aiUnitCount = state.units.filter((u) => !u.isPlayer && !u.isDead).length;
-  const plannerDecision = planAIStrategy({
-    currentAge: state.aiAge,
-    ownCastleHealthRatio: aiCastleRatio,
-    enemyCastleHealthRatio: playerCastleRatio,
-    ownArmySize: aiUnitCount,
-    enemyArmySize: playerUnitCount,
-    stockGold: state.aiGold,
+  updateAIDirector(state, canvasHeight, {
+    lanes: LANES,
+    getLaneControl,
+    getMostContestedLane,
+    spawnUnitInLane,
+    upgradeAge,
   });
-  const plannerLane = Math.max(0, Math.min(2, plannerDecision.priorityLane));
-  director.plannerNotes = plannerDecision.notes;
-  const compositionPressure = Math.max(-0.8, Math.min(1.2, (playerUnitCount - aiUnitCount) / 14));
-
-  // Adaptive layer: AI estimates player skill and adjusts pressure knobs.
-  const liveOpsBias = director.liveOpsDifficultyBias;
-  const skillSignal = Math.max(
-    0,
-    Math.min(1, 0.48 + playerMomentum * 0.14 + (playerCastleRatio - aiCastleRatio) * 0.2 + liveOpsBias * 0.12)
-  );
-  director.skillEstimate = director.skillEstimate * 0.86 + skillSignal * 0.14;
-  director.pressureScore = Math.max(-1, Math.min(1.35, playerMomentum * 0.55 + compositionPressure));
-
-  // Macro layer: economy mode and strategic stance from resource state.
-  if (state.aiGold < 140) director.economyMode = 'starved';
-  else if (state.aiGold > 340) director.economyMode = 'surplus';
-  else director.economyMode = 'balanced';
-
-  const behind = aiCastleRatio + 0.06 < playerCastleRatio;
-  const canAllIn = state.aiGold > 380 - liveOpsBias * 60 && state.aiAge >= 1;
-  if (plannerDecision.strategy === 'turtle') director.macroPlan = 'stabilize';
-  else if (plannerDecision.strategy === 'boom') director.macroPlan = 'boom';
-  else if (plannerDecision.strategy === 'rush') director.macroPlan = canAllIn ? 'allin' : 'siege';
-  else if (behind && director.economyMode !== 'surplus') director.macroPlan = 'stabilize';
-  else if (state.aiProfile === 'techrush' && director.skillEstimate < 0.58) director.macroPlan = 'boom';
-  else if (canAllIn && director.skillEstimate > 0.63 && Math.random() > 0.45) director.macroPlan = 'allin';
-  else director.macroPlan = 'siege';
-
-  const varianceFactor = director.personalityVariance + (Math.random() - 0.5) * 0.08;
-  director.reserveGold = director.macroPlan === 'stabilize'
-    ? 190
-    : director.economyMode === 'starved'
-      ? 120
-      : director.macroPlan === 'boom'
-        ? 220
-        : 95;
-
-  director.microRetreatThreshold = state.aiProfile === 'defensive'
-    ? 0.46
-    : state.aiProfile === 'aggressive'
-      ? 0.24
-      : 0.34;
-  if (director.macroPlan === 'stabilize') director.microRetreatThreshold += 0.05;
-  if (director.macroPlan === 'allin') director.microRetreatThreshold -= 0.05;
-
-  if (now >= director.nextMacroDecisionAt) {
-    director.nextMacroDecisionAt = now + 6 + Math.random() * 5;
-    director.visualTelegraph = director.macroPlan === 'stabilize'
-      ? 'defensive'
-      : director.macroPlan === 'boom'
-        ? 'techrush'
-        : state.aiProfile;
-    director.visualTelegraphUntil = now + 5.5;
-  }
-
-  // Age-up decisions tied to macro/economy instead of fixed interval.
-  if (now >= director.nextAgeCheckAt && state.aiAge < AGES.length - 1) {
-    const profileGreed = state.aiProfile === 'techrush' ? 0.2 : state.aiProfile === 'defensive' ? -0.12 : 0.05;
-    const economyBonus = director.economyMode === 'surplus' ? 0.2 : director.economyMode === 'starved' ? -0.15 : 0;
-    const riskPenalty = behind ? -0.08 : 0.06;
-    const plannerAgeBias = plannerDecision.shouldAgeUp ? 0.22 : -0.06;
-    const decisionScore =
-      (now / 155) + economyBonus + riskPenalty + profileGreed + plannerAgeBias + (1 - director.skillEstimate) * 0.12 + liveOpsBias * 0.18;
-    if (decisionScore > 0.92) {
-      upgradeAge(state, false);
-      director.visualTelegraph = 'techrush';
-      director.visualTelegraphUntil = now + 5;
-    }
-    director.nextAgeCheckAt = now + Math.max(12, 26 - state.aiAge * 3) * (0.9 + Math.random() * 0.35);
-  }
-
-  // Resource-based spawning cadence; no fixed interval loops.
-  if (now >= director.nextSpawnAt) {
-    const age = state.aiAge;
-    const spendable = Math.max(0, state.aiGold - director.reserveGold);
-    let budget = Math.min(420 + liveOpsBias * 120, spendable);
-    if (director.macroPlan === 'allin') budget += 90;
-    if (director.economyMode === 'surplus') budget += 75;
-    if (director.macroPlan === 'stabilize') budget -= 30;
-
-    // "Defensive turret build" equivalent in low-gold states:
-    // a fortified, low-mobility defender spawned near castle.
-    if (director.economyMode === 'starved' && state.aiGold >= 110 && behind && Math.random() > 0.45) {
-      const turret = spawnUnitInLane(state, 1, false, canvasHeight, weakestLane);
-      if (turret) {
-        turret.speed *= 0.22;
-        turret.range *= 1.45;
-        turret.maxHealth *= 1.28;
-        turret.health = turret.maxHealth;
-        turret.damage *= 1.08;
-        turret.x = Math.max(state.playerCastle.x + 250, state.aiCastle.x - 120);
-        turret.aiStrategyTag = 'defensive';
-        director.visualTelegraph = 'defensive';
-        director.visualTelegraphUntil = now + 4.8;
-        state.aiGold -= Math.max(0, AGES[age].units[1].cost * 0.35);
-      }
-    }
-
-    while (budget > 0) {
-      const playerUnits = state.units.filter((u) => u.isPlayer && !u.isDead);
-      let unitType = Math.floor(Math.random() * AGES[age].units.length);
-
-      // Personality bias + macro bias with controlled randomness.
-      if (state.aiProfile === 'aggressive' && Math.random() > 0.52) unitType = Math.random() > 0.46 ? 0 : 1;
-      if (state.aiProfile === 'defensive' && Math.random() > 0.5) unitType = 2;
-      if (state.aiProfile === 'techrush' && state.aiAge >= 2 && Math.random() > 0.52) unitType = 3;
-      if (director.macroPlan === 'allin' && Math.random() > 0.5) unitType = 3;
-      if (director.macroPlan === 'stabilize' && Math.random() > 0.42) unitType = 2;
-
-      if (playerUnits.length > 0) {
-        const playerTypes = playerUnits.map((u) => u.type);
-        const mostCommon = mode(playerTypes);
-        if (mostCommon === 0) unitType = Math.random() > 0.2 ? 1 : unitType;
-        else if (mostCommon === 1) unitType = Math.random() > 0.2 ? 2 : unitType;
-        else if (mostCommon === 2) unitType = Math.random() > 0.2 ? 0 : unitType;
-      }
-
-      const cost = AGES[age].units[unitType].cost;
-      if (cost > state.aiGold || cost > budget) break;
-
-      const laneBias = director.macroPlan === 'stabilize'
-        ? weakestLane
-        : director.macroPlan === 'allin'
-          ? plannerLane
-          : Math.random() > 0.58
-            ? plannerLane
-            : Math.floor(Math.random() * LANES.length);
-      const spawned = spawnUnitInLane(state, unitType, false, canvasHeight, laneBias);
-      if (!spawned) break;
-
-      spawned.aiStrategyTag = now < director.visualTelegraphUntil ? director.visualTelegraph : state.aiProfile;
-      if (director.macroPlan === 'allin') {
-        spawned.damage *= 1.08;
-        spawned.speed *= 1.04;
-      }
-      if (director.macroPlan === 'stabilize' && unitType === 2) {
-        spawned.maxHealth *= 1.1;
-        spawned.health = spawned.maxHealth;
-      }
-
-      budget -= cost;
-      if (director.economyMode === 'starved' || Math.random() > 0.72 + 0.12 * varianceFactor) break;
-    }
-
-    const spawnTempoBase = director.macroPlan === 'allin'
-      ? 0.8
-      : director.macroPlan === 'stabilize'
-        ? 1.35
-        : director.economyMode === 'surplus'
-          ? 0.95
-          : 1.18;
-    const adaptiveTempo = 1 + (director.skillEstimate - 0.5) * 0.32 - liveOpsBias * 0.18;
-    const jitter = 0.72 + Math.random() * 0.65 * varianceFactor;
-    director.nextSpawnAt = now + Math.max(0.55, spawnTempoBase * adaptiveTempo * jitter);
-  }
-
-  // Boss wave spike every 5th wave for cinematic pressure.
-  if (state.wave % 5 === 0 && state.wave > aiLastBossWave) {
-    aiLastBossWave = state.wave;
-
-    state.aiGold += 500 + state.wave * 50;
-    const tank = spawnUnitInLane(state, 2, false, canvasHeight, weakestLane);
-    const siege = spawnUnitInLane(state, 3, false, canvasHeight, contestedLane);
-
-    if (tank) {
-      tank.maxHealth *= 1.7;
-      tank.health = tank.maxHealth;
-      tank.damage *= 1.35;
-      tank.speed *= 1.12;
-      tank.aiStrategyTag = 'aggressive';
-    }
-
-    if (siege) {
-      siege.maxHealth *= 1.4;
-      siege.health = siege.maxHealth;
-      siege.damage *= 1.45;
-      siege.range *= 1.1;
-      siege.aiStrategyTag = 'techrush';
-    }
-  }
-}
-
-function mode(arr: number[]): number {
-  const counts: Record<number, number> = {};
-  let maxCount = 0;
-  let maxVal = 0;
-  
-  for (const v of arr) {
-    counts[v] = (counts[v] || 0) + 1;
-    if (counts[v] > maxCount) {
-      maxCount = counts[v];
-      maxVal = v;
-    }
-  }
-  
-  return maxVal;
 }

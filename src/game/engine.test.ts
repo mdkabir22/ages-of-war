@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyCampaignMissionConfig, createInitialState, setPlayerBattleStance, setPlayerLaneFocus, updateGame } from './engine';
+import { applyCampaignMissionConfig, createInitialState, setPlayerBattleStance, setPlayerLaneFocus, updateGame } from '../core/engine';
 
 function createStateWithSinglePlayerUnit() {
   const state = createInitialState(1000, 600, 'assault');

@@ -1,0 +1,86 @@
+import * as THREE from 'three';
+import { useGameStore } from '../../core/state';
+import { updateCameraRig } from './cameraRig';
+import { render3DOverlay } from './overlay';
+import { tickWorldFrame } from './worldTick';
+
+interface SelectionBox {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
+interface Start3DGameLoopOptions {
+  layoutSize: () => void;
+  pausedRef: { current: boolean };
+  scene: THREE.Scene;
+  renderer: THREE.WebGLRenderer;
+  camera: THREE.PerspectiveCamera;
+  cameraRef: { current: THREE.PerspectiveCamera };
+  cameraRigState: {
+    camPosSmoothed: THREE.Vector3;
+    lookSmoothed: THREE.Vector3;
+    desiredCam: THREE.Vector3;
+    desiredLook: THREE.Vector3;
+    cameraSmoothedReady: boolean;
+  };
+  waterMesh: THREE.InstancedMesh | null;
+  syncMeshes: () => void;
+  overlayCtx: CanvasRenderingContext2D | null;
+  getSelectionBox: () => SelectionBox | null;
+}
+
+export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
+  let animId = 0;
+  let prevTime = performance.now();
+
+  const loop = () => {
+    try {
+      options.layoutSize();
+      const now = performance.now();
+      const dt = Math.min((now - prevTime) / 1000, 0.05);
+      prevTime = now;
+      if (!options.pausedRef.current) {
+        tickWorldFrame(dt);
+      }
+
+      const renderState = useGameStore.getState();
+      const cam2 = renderState.camera;
+      const shake = renderState.cameraShake.offset;
+      const w = options.renderer.domElement.width;
+      const h = options.renderer.domElement.height;
+      const cx = cam2.x + w / 2 + shake.x;
+      const cz = cam2.y + h / 2 + shake.y;
+
+      updateCameraRig(options.camera, options.cameraRigState, cx, cz, dt);
+      options.cameraRef.current = options.camera;
+
+      if (options.waterMesh) {
+        options.waterMesh.position.y = -0.68 + Math.sin(now / 680) * 0.055;
+      }
+
+      options.syncMeshes();
+      options.renderer.render(options.scene, options.camera);
+
+      if (options.overlayCtx) {
+        render3DOverlay(
+          options.overlayCtx,
+          options.camera,
+          w,
+          h,
+          renderState.fog,
+          renderState.camera,
+          options.getSelectionBox()
+        );
+      }
+    } catch (err) {
+      console.error('[GameCanvas3D] loop error', err);
+    }
+
+    animId = requestAnimationFrame(loop);
+  };
+
+  loop();
+  return () => cancelAnimationFrame(animId);
+}

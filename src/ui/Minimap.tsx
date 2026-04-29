@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, TERRAIN_COLORS } from '../engine/map';
-import { useGameStore } from '../engine/state';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, TERRAIN_COLORS } from '../core/map';
+import { useGameStore } from '../core/state';
 
 const MINIMAP_WIDTH = 240;
 const MINIMAP_HEIGHT = 180;
