@@ -52,3 +52,14 @@ Core engine modules are now centralized under `src/core`:
 - `src/engine` is kept as a compatibility shim layer that re-exports from `src/core`
 
 Refactor plan: continue phased cleanup until legacy shim imports can be removed safely.
+
+## Git commits (author name/email)
+
+If commits show placeholder author (`Your Name`, `you@example.com`), set your identity once for this repo:
+
+```bash
+git config user.name "Your Real Name"
+git config user.email "your-email@example.com"
+```
+
+This does not rewrite old commits; only new commits use the updated identity.
