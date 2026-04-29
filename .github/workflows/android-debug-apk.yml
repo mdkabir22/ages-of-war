@@ -24,8 +24,9 @@ jobs:
           node-version: "22"
           cache: npm
 
+      # package-lock.json kabhi package.json se peeche rehta hai; APK CI ke liye npm install kaafi hai.
       - name: Install JS dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Web production build
         run: npm run build
