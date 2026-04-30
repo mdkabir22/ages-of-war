@@ -10,6 +10,75 @@ import { findPath } from './pathfinding';
 const FOG_TILE_SIZE = 40;
 const INITIAL_TOWN_CENTER_ID = crypto.randomUUID();
 const ENEMY_TOWN_CENTER_ID = crypto.randomUUID();
+const KEEP_SELECTION_STORAGE_KEY = 'aow.keepSelectionOnTap';
+const CAMERA_PAN_SENS_STORAGE_KEY = 'aow.cameraPanSensitivity';
+const SFX_VOLUME_STORAGE_KEY = 'aow.sfxVolume';
+
+function readKeepSelectionPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(KEEP_SELECTION_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeKeepSelectionPreference(value: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(KEEP_SELECTION_STORAGE_KEY, value ? '1' : '0');
+  } catch {
+    // Ignore storage errors; runtime state still works.
+  }
+}
+
+function clampPanSensitivity(value: number): number {
+  return Math.max(0.5, Math.min(2, value));
+}
+
+function clampSfxVolume(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function readCameraPanSensitivityPreference(): number {
+  if (typeof window === 'undefined') return 1;
+  try {
+    const raw = window.localStorage.getItem(CAMERA_PAN_SENS_STORAGE_KEY);
+    const parsed = raw == null ? NaN : Number(raw);
+    return Number.isFinite(parsed) ? clampPanSensitivity(parsed) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function writeCameraPanSensitivityPreference(value: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(CAMERA_PAN_SENS_STORAGE_KEY, String(clampPanSensitivity(value)));
+  } catch {
+    // Ignore storage errors; runtime state still works.
+  }
+}
+
+function readSfxVolumePreference(): number {
+  if (typeof window === 'undefined') return 0.5;
+  try {
+    const raw = window.localStorage.getItem(SFX_VOLUME_STORAGE_KEY);
+    const parsed = raw == null ? NaN : Number(raw);
+    return Number.isFinite(parsed) ? clampSfxVolume(parsed) : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
+function writeSfxVolumePreference(value: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SFX_VOLUME_STORAGE_KEY, String(clampSfxVolume(value)));
+  } catch {
+    // Ignore storage errors; runtime state still works.
+  }
+}
 
 function createInitialFogGrid(): GameState['fog'] {
   const width = Math.ceil(DEFAULT_MAP_WIDTH / FOG_TILE_SIZE);
@@ -164,7 +233,13 @@ type GameStore = GameState & {
   tickProductionQueues: (dt: number) => void;
   tickCombat: () => void;
   tickFogOfWar: () => void;
+  toggleKeepSelectionOnTap: () => void;
+  setCameraPanSensitivity: (value: number) => void;
+  setSfxVolume: (value: number) => void;
 };
+
+const initialSfxVolume = readSfxVolumePreference();
+audio.setVolume(initialSfxVolume);
 
 export const useGameStore = create<GameStore>((set) => ({
   currentAge: 'stone',
@@ -239,6 +314,9 @@ export const useGameStore = create<GameStore>((set) => ({
   missionElapsedSec: 0,
   wavesSurvived: 0,
   aiPlan: 'boom',
+  keepSelectionOnTap: readKeepSelectionPreference(),
+  cameraPanSensitivity: readCameraPanSensitivityPreference(),
+  sfxVolume: initialSfxVolume,
   enemyEconomy: {
     resources: { food: 130, wood: 130, stone: 80, gold: 120 },
     villagers: 3,
@@ -301,6 +379,25 @@ export const useGameStore = create<GameStore>((set) => ({
 
   selectUnit: (id) => set(() => ({ selectedIds: [id] })),
   setSelectedIds: (ids) => set(() => ({ selectedIds: ids })),
+  toggleKeepSelectionOnTap: () =>
+    set((s) => {
+      const next = !s.keepSelectionOnTap;
+      writeKeepSelectionPreference(next);
+      return { keepSelectionOnTap: next };
+    }),
+  setCameraPanSensitivity: (value) =>
+    set(() => {
+      const next = clampPanSensitivity(value);
+      writeCameraPanSensitivityPreference(next);
+      return { cameraPanSensitivity: next };
+    }),
+  setSfxVolume: (value) =>
+    set(() => {
+      const next = clampSfxVolume(value);
+      audio.setVolume(next);
+      writeSfxVolumePreference(next);
+      return { sfxVolume: next };
+    }),
 
   placeBuilding: (x, y, type = 'farm') =>
     set((s) => {
@@ -398,11 +495,12 @@ export const useGameStore = create<GameStore>((set) => ({
 
   moveCamera: (dx, dy) =>
     set((s) => {
+      const pan = clampPanSensitivity(s.cameraPanSensitivity);
       const mapPixelWidth = (s.terrain[0]?.length ?? Math.ceil(DEFAULT_MAP_WIDTH / TILE_SIZE)) * TILE_SIZE;
       const mapPixelHeight = s.terrain.length * TILE_SIZE;
       const maxX = Math.max(0, mapPixelWidth - window.innerWidth);
       const maxY = Math.max(0, mapPixelHeight - window.innerHeight);
-      return { camera: { x: Math.max(0, Math.min(s.camera.x + dx, maxX)), y: Math.max(0, Math.min(s.camera.y + dy, maxY)) } };
+      return { camera: { x: Math.max(0, Math.min(s.camera.x + dx * pan, maxX)), y: Math.max(0, Math.min(s.camera.y + dy * pan, maxY)) } };
     }),
 
   triggerCameraShake: (intensity, duration) => set(() => ({ cameraShake: { intensity, duration, timer: duration, offset: { x: 0, y: 0 } } })),

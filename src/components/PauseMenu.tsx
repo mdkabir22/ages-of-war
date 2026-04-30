@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { audio } from '../audio/manager';
+import { useGameStore } from '../core/state';
 
 interface PauseMenuProps {
   isOpen: boolean;
@@ -9,10 +10,17 @@ interface PauseMenuProps {
 }
 
 export function PauseMenu({ isOpen, onResume, onRestart, onQuit }: PauseMenuProps) {
-  const initialVolume = useMemo(() => Math.round(audio.getVolume() * 100), []);
+  const gameState = useGameStore();
+  const initialVolume = useMemo(() => Math.round(gameState.sfxVolume * 100), [gameState.sfxVolume]);
   const initialEnabled = useMemo(() => audio.isEnabled(), []);
   const [volume, setVolume] = useState(initialVolume);
   const [soundEnabled, setSoundEnabled] = useState(initialEnabled);
+
+  useEffect(() => {
+    if (isOpen) {
+      setVolume(Math.round(gameState.sfxVolume * 100));
+    }
+  }, [isOpen, gameState.sfxVolume]);
 
   if (!isOpen) return null;
 
@@ -34,7 +42,7 @@ export function PauseMenu({ isOpen, onResume, onRestart, onQuit }: PauseMenuProp
                 onChange={(e) => {
                   const v = Number(e.target.value);
                   setVolume(v);
-                  audio.setVolume(v / 100);
+                  useGameStore.getState().setSfxVolume(v / 100);
                 }}
                 className="w-full"
               />
@@ -54,6 +62,37 @@ export function PauseMenu({ isOpen, onResume, onRestart, onQuit }: PauseMenuProp
             >
               {soundEnabled ? 'ON' : 'OFF'}
             </button>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border border-white/15 bg-white/5 px-3 py-2">
+            <span className="text-sm">Keep Selection On Tap</span>
+            <button
+              onClick={() => useGameStore.getState().toggleKeepSelectionOnTap()}
+              className="rounded-md border border-white/25 bg-white/10 px-3 py-1 text-sm font-semibold hover:bg-white/20"
+            >
+              {gameState.keepSelectionOnTap ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
+          <div className="rounded-md border border-white/15 bg-white/5 px-3 py-2">
+            <div className="mb-2 text-sm">Camera Pan Sensitivity</div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => useGameStore.getState().setCameraPanSensitivity(gameState.cameraPanSensitivity - 0.1)}
+                className="rounded-md border border-white/25 bg-white/10 px-2 py-1 text-sm font-semibold hover:bg-white/20"
+                aria-label="Decrease pan sensitivity"
+              >
+                -
+              </button>
+              <div className="min-w-[3.2rem] text-center text-sm text-white/90">{gameState.cameraPanSensitivity.toFixed(1)}x</div>
+              <button
+                onClick={() => useGameStore.getState().setCameraPanSensitivity(gameState.cameraPanSensitivity + 0.1)}
+                className="rounded-md border border-white/25 bg-white/10 px-2 py-1 text-sm font-semibold hover:bg-white/20"
+                aria-label="Increase pan sensitivity"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
 

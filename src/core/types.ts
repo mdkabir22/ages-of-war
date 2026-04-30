@@ -237,4 +237,7 @@ export interface GameState {
   wavesSurvived: number;
   aiPlan: 'rush' | 'boom' | 'turtle';
   enemyEconomy: EnemyEconomy;
+  keepSelectionOnTap: boolean;
+  cameraPanSensitivity: number;
+  sfxVolume: number;
 }

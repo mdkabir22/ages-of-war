@@ -73,6 +73,7 @@ export function GameCanvas({ paused = false }: GameCanvasProps) {
       pausedRef,
       unitAnimations,
       () => inputController.getSelectionBox(),
+      () => inputController.getTouchIndicator(),
       layoutCanvasSize
     );
     return () => {

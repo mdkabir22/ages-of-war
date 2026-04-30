@@ -97,3 +97,16 @@ export function drawSelectionBox(
   ctx.strokeRect(left, top, width, height);
   ctx.restore();
 }
+
+export function drawTouchIndicator(ctx: CanvasRenderingContext2D, x: number, y: number, progress: number): void {
+  const t = Math.max(0, Math.min(1, progress));
+  const radius = 10 + t * 18;
+  const alpha = 0.55 * (1 - t);
+  ctx.save();
+  ctx.strokeStyle = `rgba(251, 191, 36, ${alpha})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { useGameStore } from '../../core/state';
 import { updateCameraRig } from './cameraRig';
-import { render3DOverlay } from './overlay';
+import { draw3DTouchIndicator, render3DOverlay } from './overlay';
 import { tickWorldFrame } from './worldTick';
 
 interface SelectionBox {
@@ -9,6 +9,12 @@ interface SelectionBox {
   startY: number;
   currentX: number;
   currentY: number;
+}
+
+interface TouchIndicator {
+  x: number;
+  y: number;
+  expiresAt: number;
 }
 
 interface Start3DGameLoopOptions {
@@ -29,6 +35,7 @@ interface Start3DGameLoopOptions {
   syncMeshes: () => void;
   overlayCtx: CanvasRenderingContext2D | null;
   getSelectionBox: () => SelectionBox | null;
+  getTouchIndicator: () => TouchIndicator | null;
 }
 
 export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
@@ -73,6 +80,12 @@ export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
           renderState.camera,
           options.getSelectionBox()
         );
+        const touchIndicator = options.getTouchIndicator();
+        if (touchIndicator) {
+          const lifeMs = 260;
+          const progress = 1 - Math.max(0, touchIndicator.expiresAt - performance.now()) / lifeMs;
+          draw3DTouchIndicator(options.overlayCtx, touchIndicator.x, touchIndicator.y, progress);
+        }
       }
     } catch (err) {
       console.error('[GameCanvas3D] loop error', err);

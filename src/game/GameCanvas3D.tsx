@@ -185,6 +185,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       syncMeshes,
       overlayCtx: overlayCtx ?? null,
       getSelectionBox: inputController.getSelectionBox,
+      getTouchIndicator: inputController.getTouchIndicator,
     });
 
     return () => {

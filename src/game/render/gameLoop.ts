@@ -2,7 +2,7 @@ import type { MutableRefObject } from 'react';
 import { useGameStore } from '../../core/state';
 import type { AnimatedUnit } from '../systems/animation';
 import { drawBuildingsLayer } from './buildingsLayer';
-import { drawFogLayer, drawSelectionBox, drawTerrainLayer } from './canvasLayers';
+import { drawFogLayer, drawSelectionBox, drawTerrainLayer, drawTouchIndicator } from './canvasLayers';
 import { drawUnitsLayer } from './unitsLayer';
 
 interface SelectionBox {
@@ -12,12 +12,19 @@ interface SelectionBox {
   currentY: number;
 }
 
+interface TouchIndicator {
+  x: number;
+  y: number;
+  expiresAt: number;
+}
+
 export function startGameCanvasLoop(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
   pausedRef: MutableRefObject<boolean>,
   unitAnimations: Map<string, AnimatedUnit>,
   getSelectionBox: () => SelectionBox | null,
+  getTouchIndicator: () => TouchIndicator | null,
   layoutCanvasSize: () => void
 ): () => void {
   let animId = 0;
@@ -61,6 +68,12 @@ export function startGameCanvasLoop(
           selectionBox.currentX,
           selectionBox.currentY
         );
+      }
+      const touchIndicator = getTouchIndicator();
+      if (touchIndicator) {
+        const lifeMs = 260;
+        const progress = 1 - Math.max(0, touchIndicator.expiresAt - performance.now()) / lifeMs;
+        drawTouchIndicator(ctx, touchIndicator.x, touchIndicator.y, progress);
       }
     } catch (err) {
       console.error('[GameCanvas] render loop error', err);

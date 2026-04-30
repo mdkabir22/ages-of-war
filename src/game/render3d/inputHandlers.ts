@@ -10,6 +10,12 @@ interface SelectionBox {
   currentY: number;
 }
 
+interface TouchIndicator {
+  x: number;
+  y: number;
+  expiresAt: number;
+}
+
 export function setup3DInputHandlers(
   canvas: HTMLCanvasElement,
   pausedRef: MutableRefObject<boolean>,
@@ -18,6 +24,7 @@ export function setup3DInputHandlers(
 ): {
   cleanup: () => void;
   getSelectionBox: () => SelectionBox | null;
+  getTouchIndicator: () => TouchIndicator | null;
 } {
   let isPanning = false;
   let panLastX = 0;
@@ -28,6 +35,17 @@ export function setup3DInputHandlers(
   let selectionCurrentX = 0;
   let selectionCurrentY = 0;
   let selectionMoved = false;
+  let isTouchPanning = false;
+  let touchLastX = 0;
+  let touchLastY = 0;
+  let touchMoved = false;
+  const touchMoveThreshold = 8;
+  let lastTapAtMs = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  const doubleTapWindowMs = 280;
+  const doubleTapDistancePx = 28;
+  let touchIndicator: TouchIndicator | null = null;
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (pausedRef.current) return;
@@ -112,26 +130,8 @@ export function setup3DInputHandlers(
     if (!world) return;
 
     const state = useGameStore.getState();
-    const hitBuilding = state.buildings.find(
-      (b) =>
-        world.x >= b.position.x &&
-        world.x <= b.position.x + options.buildingVisualSize &&
-        world.y >= b.position.y &&
-        world.y <= b.position.y + options.buildingVisualSize
-    );
-    if (hitBuilding) {
-      state.selectUnit(hitBuilding.id);
-      return;
-    }
-    const hitUnit = state.units.find((u) => {
-      const cx = u.position.x + 16;
-      const cy = u.position.y + 16;
-      return Math.abs(world.x - cx) <= 14 && Math.abs(world.y - cy) <= 14;
-    });
-    if (hitUnit) {
-      state.selectUnit(hitUnit.id);
-      return;
-    }
+    const handled = handleTapSelection(state, world.x, world.y);
+    if (handled) return;
 
     const gridX = Math.floor(world.x / options.tilePlace) * options.tilePlace;
     const gridY = Math.floor(world.y / options.tilePlace) * options.tilePlace;
@@ -140,6 +140,79 @@ export function setup3DInputHandlers(
       state.placeBuilding(gridX, gridY, buildType);
     }
     state.setSelectedIds([]);
+  };
+
+  const handleTapSelection = (state: ReturnType<typeof useGameStore.getState>, worldX: number, worldY: number): boolean => {
+    const hitBuilding = state.buildings.find(
+      (b) =>
+        worldX >= b.position.x &&
+        worldX <= b.position.x + options.buildingVisualSize &&
+        worldY >= b.position.y &&
+        worldY <= b.position.y + options.buildingVisualSize
+    );
+    if (hitBuilding) {
+      state.selectUnit(hitBuilding.id);
+      return true;
+    }
+    const hitUnit = state.units.find((u) => {
+      const cx = u.position.x + 16;
+      const cy = u.position.y + 16;
+      return Math.abs(worldX - cx) <= 14 && Math.abs(worldY - cy) <= 14;
+    });
+    if (hitUnit) {
+      state.selectUnit(hitUnit.id);
+      return true;
+    }
+    return false;
+  };
+
+  const handleTouchStart = (e: TouchEvent) => {
+    if (pausedRef.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    isTouchPanning = true;
+    touchMoved = false;
+    touchLastX = t.clientX;
+    touchLastY = t.clientY;
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (pausedRef.current || !isTouchPanning) return;
+    const t = e.touches[0];
+    if (!t) return;
+    const dx = t.clientX - touchLastX;
+    const dy = t.clientY - touchLastY;
+    touchLastX = t.clientX;
+    touchLastY = t.clientY;
+    if (Math.abs(dx) > touchMoveThreshold || Math.abs(dy) > touchMoveThreshold) {
+      touchMoved = true;
+    }
+    useGameStore.getState().moveCamera(-dx, -dy);
+    e.preventDefault();
+  };
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    if (pausedRef.current) return;
+    const t = e.changedTouches[0];
+    isTouchPanning = false;
+    if (!t || touchMoved) return;
+    const world = groundPoint(t.clientX, t.clientY, canvas, cameraRef.current);
+    if (!world) return;
+    const state = useGameStore.getState();
+    const handled = handleTapSelection(state, world.x, world.y);
+    if (handled) return;
+    const now = performance.now();
+    const isDoubleTap =
+      now - lastTapAtMs <= doubleTapWindowMs &&
+      Math.hypot(t.clientX - lastTapX, t.clientY - lastTapY) <= doubleTapDistancePx;
+    lastTapAtMs = now;
+    lastTapX = t.clientX;
+    lastTapY = t.clientY;
+    state.commandMoveSelectedUnits(world.x, world.y);
+    if (!isDoubleTap && !state.keepSelectionOnTap) {
+      state.setSelectedIds([]);
+    }
+    touchIndicator = { x: t.clientX - canvas.getBoundingClientRect().left, y: t.clientY - canvas.getBoundingClientRect().top, expiresAt: performance.now() + 260 };
   };
 
   const handleContextMenu = (e: MouseEvent) => {
@@ -163,6 +236,9 @@ export function setup3DInputHandlers(
   window.addEventListener('mousemove', handleMouseMove);
   window.addEventListener('mouseup', handleMouseUp);
   canvas.addEventListener('contextmenu', handleContextMenu);
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+  canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
 
   return {
     cleanup: () => {
@@ -171,6 +247,9 @@ export function setup3DInputHandlers(
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('contextmenu', handleContextMenu);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
     },
     getSelectionBox: () =>
       isSelecting
@@ -181,5 +260,13 @@ export function setup3DInputHandlers(
             currentY: selectionCurrentY,
           }
         : null,
+    getTouchIndicator: () => {
+      if (!touchIndicator) return null;
+      if (performance.now() > touchIndicator.expiresAt) {
+        touchIndicator = null;
+        return null;
+      }
+      return touchIndicator;
+    },
   };
 }

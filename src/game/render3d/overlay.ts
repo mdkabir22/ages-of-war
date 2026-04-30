@@ -32,3 +32,16 @@ export function render3DOverlay(
   overlayCtx.strokeRect(left, top, rw, rh);
   overlayCtx.restore();
 }
+
+export function draw3DTouchIndicator(overlayCtx: CanvasRenderingContext2D, x: number, y: number, progress: number): void {
+  const t = Math.max(0, Math.min(1, progress));
+  const radius = 10 + t * 18;
+  const alpha = 0.55 * (1 - t);
+  overlayCtx.save();
+  overlayCtx.strokeStyle = `rgba(251, 191, 36, ${alpha})`;
+  overlayCtx.lineWidth = 2;
+  overlayCtx.beginPath();
+  overlayCtx.arc(x, y, radius, 0, Math.PI * 2);
+  overlayCtx.stroke();
+  overlayCtx.restore();
+}
