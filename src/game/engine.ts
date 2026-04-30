@@ -16,11 +16,7 @@ import { applyCampaignMissionConfig } from './systems/campaignConfig';
 import {
   getLaneControl,
   getMostContestedLane,
-  resolveUnitCombatPhase,
-  runUnitTargetingPhase,
-  tryApplyEnemyRetreat,
   updateProjectiles,
-  applyPlayerLaneFocus,
 } from './systems/combatRuntime';
 import { runPostTickMaintenance } from './systems/postTick';
 import { updateObjectivesAndCampaignProgress } from './systems/objectivesRuntime';
@@ -30,6 +26,7 @@ import { addFloatingText, updateFloatingTexts, updateParticles } from './systems
 import { canUpgradeAgeRuntime, spawnUnitRuntime, upgradeAgeRuntime } from './systems/unitLifecycle';
 import { createInitialStateRuntime } from './systems/initialStateRuntime';
 import { deriveCombatRuntimeContext } from './systems/combatContextRuntime';
+import { runUnitUpdateRuntime } from './systems/unitUpdateRuntime';
 
 export { canTrainUnit, trainUnit };
 export { addFloatingText };
@@ -89,34 +86,7 @@ export function updateGame(state: GameState, dt: number, canvasWidth: number, ca
 
   runRuntimeTick(state, dt);
   const context = deriveCombatRuntimeContext(state, canvasHeight, LANES);
-
-  // Update units
-  for (const unit of state.units) {
-    if (unit.isDead) continue;
-
-    if (tryApplyEnemyRetreat(unit, state, dt, canvasWidth, canvasHeight, context.aiRetreatThreshold, context.aiStabilizeMode)) {
-      continue;
-    }
-    applyPlayerLaneFocus(unit, state, dt, context.laneFocusY);
-
-    const targeting = runUnitTargetingPhase(unit, state, dt, canvasHeight, context.stanceRangeBonus, context.stanceMoveMult);
-    if (targeting.skipIteration) continue;
-
-    resolveUnitCombatPhase(
-      unit,
-      state,
-      dt,
-      canvasHeight,
-      targeting.targetIsCastle,
-      targeting.enemyCastle,
-      context.stanceDamageMult,
-      context.stanceMoveMult
-    );
-    
-    // Keep unit in bounds
-    unit.x = Math.max(20, Math.min(canvasWidth - 20, unit.x));
-    unit.y = Math.max(50, Math.min(canvasHeight - 150, unit.y));
-  }
+  runUnitUpdateRuntime(state, dt, canvasWidth, canvasHeight, context);
   
   updateProjectiles(state, dt);
   
