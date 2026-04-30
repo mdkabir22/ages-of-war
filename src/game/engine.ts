@@ -16,17 +16,11 @@ import { applyCampaignMissionConfig } from './systems/campaignConfig';
 import {
   getLaneControl,
   getMostContestedLane,
-  updateProjectiles,
 } from './systems/combatRuntime';
-import { runPostTickMaintenance } from './systems/postTick';
-import { updateObjectivesAndCampaignProgress } from './systems/objectivesRuntime';
-import { runRuntimeTick } from './systems/runtimeTick';
-import { runEconomyTick } from './systems/economyRuntime';
-import { addFloatingText, updateFloatingTexts, updateParticles } from './systems/effects';
+import { addFloatingText } from './systems/effects';
 import { canUpgradeAgeRuntime, spawnUnitRuntime, upgradeAgeRuntime } from './systems/unitLifecycle';
 import { createInitialStateRuntime } from './systems/initialStateRuntime';
-import { deriveCombatRuntimeContext } from './systems/combatContextRuntime';
-import { runUnitUpdateRuntime } from './systems/unitUpdateRuntime';
+import { runGameUpdateRuntime } from './systems/gameUpdateRuntime';
 
 export { canTrainUnit, trainUnit };
 export { addFloatingText };
@@ -81,21 +75,7 @@ function spawnUnitInLane(
 
 
 export function updateGame(state: GameState, dt: number, canvasWidth: number, canvasHeight: number): void {
-  state.time += dt;
-  runEconomyTick(state, dt);
-
-  runRuntimeTick(state, dt);
-  const context = deriveCombatRuntimeContext(state, canvasHeight, LANES);
-  runUnitUpdateRuntime(state, dt, canvasWidth, canvasHeight, context);
-  
-  updateProjectiles(state, dt);
-  
-  updateParticles(state, dt);
-  updateFloatingTexts(state, dt);
-  
-  runPostTickMaintenance(state, dt);
-
-  updateObjectivesAndCampaignProgress(state);
+  runGameUpdateRuntime(state, dt, canvasWidth, canvasHeight, LANES);
 }
 
 export function canBuildStructure(state: GameState, type: BuildingType, isPlayer: boolean): boolean {
