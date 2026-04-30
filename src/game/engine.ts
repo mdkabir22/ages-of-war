@@ -29,6 +29,7 @@ import { runEconomyTick } from './systems/economyRuntime';
 import { addFloatingText, updateFloatingTexts, updateParticles } from './systems/effects';
 import { canUpgradeAgeRuntime, spawnUnitRuntime, upgradeAgeRuntime } from './systems/unitLifecycle';
 import { createInitialStateRuntime } from './systems/initialStateRuntime';
+import { deriveCombatRuntimeContext } from './systems/combatContextRuntime';
 
 export { canTrainUnit, trainUnit };
 export { addFloatingText };
@@ -87,25 +88,18 @@ export function updateGame(state: GameState, dt: number, canvasWidth: number, ca
   runEconomyTick(state, dt);
 
   runRuntimeTick(state, dt);
-  
-  const aiRetreatThreshold = state.aiDirector.microRetreatThreshold;
-  const aiStabilizeMode = state.aiDirector.macroPlan === 'stabilize';
-  const stanceMoveMult = state.playerBattleStance === 'aggressive' ? 1.1 : state.playerBattleStance === 'defensive' ? 0.9 : 1;
-  const stanceDamageMult = state.playerBattleStance === 'aggressive' ? 1.1 : state.playerBattleStance === 'defensive' ? 0.94 : 1;
-  const stanceRangeBonus = state.playerBattleStance === 'defensive' ? 14 : state.playerBattleStance === 'aggressive' ? -3 : 0;
-  const laneFocusIndex = state.playerLaneFocus === 'left' ? 0 : state.playerLaneFocus === 'center' ? 1 : state.playerLaneFocus === 'right' ? 2 : -1;
-  const laneFocusY = laneFocusIndex >= 0 ? LANES[laneFocusIndex] * canvasHeight : null;
+  const context = deriveCombatRuntimeContext(state, canvasHeight, LANES);
 
   // Update units
   for (const unit of state.units) {
     if (unit.isDead) continue;
 
-    if (tryApplyEnemyRetreat(unit, state, dt, canvasWidth, canvasHeight, aiRetreatThreshold, aiStabilizeMode)) {
+    if (tryApplyEnemyRetreat(unit, state, dt, canvasWidth, canvasHeight, context.aiRetreatThreshold, context.aiStabilizeMode)) {
       continue;
     }
-    applyPlayerLaneFocus(unit, state, dt, laneFocusY);
+    applyPlayerLaneFocus(unit, state, dt, context.laneFocusY);
 
-    const targeting = runUnitTargetingPhase(unit, state, dt, canvasHeight, stanceRangeBonus, stanceMoveMult);
+    const targeting = runUnitTargetingPhase(unit, state, dt, canvasHeight, context.stanceRangeBonus, context.stanceMoveMult);
     if (targeting.skipIteration) continue;
 
     resolveUnitCombatPhase(
@@ -115,8 +109,8 @@ export function updateGame(state: GameState, dt: number, canvasWidth: number, ca
       canvasHeight,
       targeting.targetIsCastle,
       targeting.enemyCastle,
-      stanceDamageMult,
-      stanceMoveMult
+      context.stanceDamageMult,
+      context.stanceMoveMult
     );
     
     // Keep unit in bounds
