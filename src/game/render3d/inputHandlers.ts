@@ -1,5 +1,4 @@
 import type { MutableRefObject } from 'react';
-import * as THREE from 'three';
 import { useGameStore } from '../../core/state';
 import { groundPoint, groundRectBounds } from './spatial';
 
@@ -19,7 +18,7 @@ interface TouchIndicator {
 export function setup3DInputHandlers(
   canvas: HTMLCanvasElement,
   pausedRef: MutableRefObject<boolean>,
-  cameraRef: { current: THREE.PerspectiveCamera },
+  cameraRef: { current: any },
   options: { buildingVisualSize: number; tilePlace: number }
 ): {
   cleanup: () => void;

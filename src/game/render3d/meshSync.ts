@@ -6,16 +6,16 @@ import { facingDestination, terrainHeightAt, unitBoxDims } from './spatial';
 interface MeshSyncOptions {
   fogTileSize: number;
   buildingVisualSize: number;
-  scene: THREE.Scene;
-  unitMeshes: Map<string, THREE.Mesh>;
-  buildingMeshes: Map<string, THREE.Mesh>;
-  selectionRings: Map<string, THREE.Mesh>;
-  ringGeo: THREE.RingGeometry;
-  ringMat: THREE.MeshBasicMaterial;
-  matUnitPlayer: THREE.MeshStandardMaterial;
-  matUnitEnemy: THREE.MeshStandardMaterial;
-  matBuildingPlayer: THREE.MeshStandardMaterial;
-  matBuildingEnemy: THREE.MeshStandardMaterial;
+  scene: any;
+  unitMeshes: Map<string, any>;
+  buildingMeshes: Map<string, any>;
+  selectionRings: Map<string, any>;
+  ringGeo: any;
+  ringMat: any;
+  matUnitPlayer: any;
+  matUnitEnemy: any;
+  matBuildingPlayer: any;
+  matBuildingEnemy: any;
 }
 
 export function sync3DMeshes(options: MeshSyncOptions): void {
