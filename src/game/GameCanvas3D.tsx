@@ -10,8 +10,6 @@ import { buildForestTrees, buildTerrainFromMap, buildWaterSurface } from './rend
 import {
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_WIDTH,
-  TILE_SIZE,
-  type TerrainTile,
 } from '../core/map';
 import { audio } from '../audio/manager';
 

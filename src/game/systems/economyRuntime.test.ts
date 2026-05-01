@@ -23,7 +23,7 @@ describe('economy runtime', () => {
       position: { x: 120, y: 100 },
       assignedNode: null,
       carriedResource: { type: 'wood', amount: 25 },
-      state: 'returning',
+      state: 'returning_to_dropoff',
       owner: 'player',
     });
     state.playerResources.wood = 0;
