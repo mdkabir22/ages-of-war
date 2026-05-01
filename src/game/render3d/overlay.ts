@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { drawFogOverlay } from './fogOverlay';
 
 interface SelectionBox {
@@ -10,7 +9,7 @@ interface SelectionBox {
 
 export function render3DOverlay(
   overlayCtx: CanvasRenderingContext2D,
-  camera: THREE.PerspectiveCamera,
+  camera: any,
   width: number,
   height: number,
   fog: { width: number; height: number; tiles: Uint8Array },

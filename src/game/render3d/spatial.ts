@@ -11,7 +11,7 @@ export function groundPoint(
   clientX: number,
   clientY: number,
   canvas: HTMLCanvasElement,
-  camera: THREE.PerspectiveCamera
+  camera: any
 ): { x: number; y: number } | null {
   const rect = canvas.getBoundingClientRect();
   pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -25,7 +25,7 @@ export function groundPoint(
 export function groundRectBounds(
   clientCoords: [number, number][],
   canvas: HTMLCanvasElement,
-  camera: THREE.PerspectiveCamera
+  camera: any
 ): { minX: number; maxX: number; minY: number; maxY: number } | null {
   let minX = Infinity;
   let maxX = -Infinity;

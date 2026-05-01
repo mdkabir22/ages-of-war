@@ -9,7 +9,7 @@ import {
 import { terrainHeightAt } from './spatial';
 
 export function buildForestTrees(terrain: TerrainTile[][]): {
-  mesh: THREE.InstancedMesh;
+  mesh: any;
   dispose: () => void;
 } | null {
   let count = 0;
@@ -63,7 +63,7 @@ export function buildForestTrees(terrain: TerrainTile[][]): {
 }
 
 export function buildWaterSurface(terrain: TerrainTile[][]): {
-  mesh: THREE.InstancedMesh;
+  mesh: any;
   dispose: () => void;
 } | null {
   let count = 0;
@@ -114,7 +114,7 @@ export function buildWaterSurface(terrain: TerrainTile[][]): {
 }
 
 export function buildTerrainFromMap(terrain: TerrainTile[][]): {
-  mesh: THREE.Mesh;
+  mesh: any;
   dispose: () => void;
 } {
   const cols = terrain[0]?.length ?? 0;
