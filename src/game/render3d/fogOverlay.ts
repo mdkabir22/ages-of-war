@@ -5,7 +5,7 @@ const proj = new THREE.Vector3();
 
 export function drawFogOverlay(
   ctx: CanvasRenderingContext2D,
-  camera: THREE.PerspectiveCamera,
+  camera: any,
   width: number,
   height: number,
   fog: { width: number; height: number; tiles: Uint8Array },

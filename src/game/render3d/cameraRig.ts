@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
 interface CameraRigState {
-  camPosSmoothed: THREE.Vector3;
-  lookSmoothed: THREE.Vector3;
-  desiredCam: THREE.Vector3;
-  desiredLook: THREE.Vector3;
+  camPosSmoothed: any;
+  lookSmoothed: any;
+  desiredCam: any;
+  desiredLook: any;
   cameraSmoothedReady: boolean;
 }
 
@@ -19,7 +19,7 @@ export function createCameraRigState(): CameraRigState {
 }
 
 export function updateCameraRig(
-  camera: THREE.PerspectiveCamera,
+  camera: any,
   state: CameraRigState,
   centerX: number,
   centerZ: number,

@@ -93,9 +93,9 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
 
     const terrainGridHelper = grid;
 
-    const unitMeshes = new Map<string, THREE.Mesh>();
-    const buildingMeshes = new Map<string, THREE.Mesh>();
-    const selectionRings = new Map<string, THREE.Mesh>();
+    const unitMeshes = new Map<string, any>();
+    const buildingMeshes = new Map<string, any>();
+    const selectionRings = new Map<string, any>();
 
     const ringGeo = new THREE.RingGeometry(16, 24, 52);
     const ringMat = new THREE.MeshBasicMaterial({

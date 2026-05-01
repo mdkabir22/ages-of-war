@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { useGameStore } from '../../core/state';
 import { updateCameraRig } from './cameraRig';
 import { draw3DTouchIndicator, render3DOverlay } from './overlay';
@@ -20,18 +19,18 @@ interface TouchIndicator {
 interface Start3DGameLoopOptions {
   layoutSize: () => void;
   pausedRef: { current: boolean };
-  scene: THREE.Scene;
-  renderer: THREE.WebGLRenderer;
-  camera: THREE.PerspectiveCamera;
-  cameraRef: { current: THREE.PerspectiveCamera };
+  scene: any;
+  renderer: any;
+  camera: any;
+  cameraRef: { current: any };
   cameraRigState: {
-    camPosSmoothed: THREE.Vector3;
-    lookSmoothed: THREE.Vector3;
-    desiredCam: THREE.Vector3;
-    desiredLook: THREE.Vector3;
+    camPosSmoothed: any;
+    lookSmoothed: any;
+    desiredCam: any;
+    desiredLook: any;
     cameraSmoothedReady: boolean;
   };
-  waterMesh: THREE.InstancedMesh | null;
+  waterMesh: any | null;
   syncMeshes: () => void;
   overlayCtx: CanvasRenderingContext2D | null;
   getSelectionBox: () => SelectionBox | null;
