@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GameUnit } from '../../types/game';
+import { LANE_Y_RATIOS } from '../../core/map';
 import { createInitialState } from '../engine';
 import { deriveCombatRuntimeContext } from './combatContextRuntime';
 import { runUnitUpdateRuntime } from './unitUpdateRuntime';
@@ -35,7 +36,7 @@ describe('unit update runtime', () => {
     const enemy = makeUnit({ id: 'enemy', x: 50, y: 580, isPlayer: false });
     state.units = [player, enemy];
 
-    const context = deriveCombatRuntimeContext(state, 600, [0.28, 0.5, 0.72]);
+    const context = deriveCombatRuntimeContext(state, 600, [...LANE_Y_RATIOS]);
     runUnitUpdateRuntime(state, 0.1, 1000, 600, context);
 
     expect(player.x).toBeLessThanOrEqual(980);
@@ -49,7 +50,7 @@ describe('unit update runtime', () => {
     const dead = makeUnit({ id: 'dead', isDead: true, x: 4, y: 4 });
     state.units = [dead];
 
-    const context = deriveCombatRuntimeContext(state, 600, [0.28, 0.5, 0.72]);
+    const context = deriveCombatRuntimeContext(state, 600, [...LANE_Y_RATIOS]);
     runUnitUpdateRuntime(state, 0.16, 1000, 600, context);
 
     expect(dead.x).toBe(4);

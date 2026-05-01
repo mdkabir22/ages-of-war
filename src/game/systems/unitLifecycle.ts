@@ -1,11 +1,12 @@
 import type { GameState, GameUnit } from '../../types/game';
+import { LANE_Y_RATIOS } from '../../core/map';
 import { AGES, getUnitDamage } from '../ages';
 import { BUILDING_DEFINITIONS } from '../entities/buildings';
 import { assignVillagerToNode } from './gathering';
 import { trainUnit } from './training';
 import { allocParticle, emitRadialParticles } from './effects';
 
-const LANES = [0.28, 0.5, 0.72];
+const LANES = [...LANE_Y_RATIOS];
 
 function getPopulationCap(state: GameState, isPlayer: boolean): number {
   const buildings = isPlayer ? state.playerBuildings : state.aiBuildings;

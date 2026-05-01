@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pause, Zap, Play, RotateCcw, Home, HelpCircle, ChevronUp, Gem, Rocket, Volume2, VolumeX, Share2 } from 'lucide-react';
 import { Slider } from './ui/slider';
 import type { BattleStance, BuildingType, GameState, LaneFocus } from '../types/game';
+import { LANE_Y_RATIOS } from '../core/map';
 import { AGES, XP_THRESHOLDS } from '../game/ages';
 import { canActivateFortify, canActivateRally, canUpgradeAge } from '../core/engine';
 import { TECH_TREE, canUnlockTech } from '../game/systems/techTree';
@@ -204,7 +205,7 @@ export function GameHUD({
         : gameState.mode === 'defense'
           ? 'Hold center lane and preserve fortress health until timer ends.'
           : 'Balance economy and lane control before committing final siege.';
-  const laneAnchors = [0.28, 0.5, 0.72];
+  const laneAnchors = LANE_Y_RATIOS;
   const battleWidthEstimate = Math.max(1, Math.max(gameState.playerCastle.x, gameState.aiCastle.x) + 80);
   const battleHeightEstimate = Math.max(600, ...gameState.units.map((u) => u.y), gameState.playerBuildings[0]?.y ?? 0, gameState.aiBuildings[0]?.y ?? 0);
   const playerBaseHintPos = {

@@ -1,4 +1,5 @@
 import type { GameState, GameUnit, GameMode, BuildingType, BattleStance, LaneFocus } from '../types/game';
+import { LANE_Y_RATIOS } from '../core/map';
 import {
   activateFortify as activateFortifySystem,
   activateRally as activateRallySystem,
@@ -27,7 +28,7 @@ export { addFloatingText };
 
 let unitIdCounter = 0;
 let buildingIdCounter = 0;
-const LANES = [0.28, 0.5, 0.72];
+const LANES = [...LANE_Y_RATIOS];
 function generateUnitId(): string {
   return `unit_${++unitIdCounter}_${Math.random().toString(36).substr(2, 5)}`;
 }

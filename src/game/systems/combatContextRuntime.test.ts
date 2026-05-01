@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LANE_Y_RATIOS } from '../../core/map';
 import { createInitialState } from '../engine';
 import { deriveCombatRuntimeContext } from './combatContextRuntime';
 
@@ -10,7 +11,7 @@ describe('combat context runtime', () => {
     state.aiDirector.macroPlan = 'stabilize';
     state.aiDirector.microRetreatThreshold = 0.37;
 
-    const lanes = [0.28, 0.5, 0.72];
+    const lanes = [...LANE_Y_RATIOS];
     const context = deriveCombatRuntimeContext(state, 600, lanes);
 
     expect(context.aiRetreatThreshold).toBe(0.37);
@@ -28,7 +29,7 @@ describe('combat context runtime', () => {
     state.aiDirector.macroPlan = 'boom';
     state.aiDirector.microRetreatThreshold = 0.22;
 
-    const context = deriveCombatRuntimeContext(state, 600, [0.28, 0.5, 0.72]);
+    const context = deriveCombatRuntimeContext(state, 600, [...LANE_Y_RATIOS]);
 
     expect(context.aiRetreatThreshold).toBe(0.22);
     expect(context.aiStabilizeMode).toBe(false);

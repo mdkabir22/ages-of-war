@@ -1,4 +1,5 @@
 import { AGES } from '../ages';
+import { LANE_Y_RATIOS } from '../../core/map';
 import { remoteGameConfig } from '../../lib/remoteConfig';
 import {
   allocProjectile,
@@ -10,7 +11,7 @@ import {
 } from './effects';
 import type { Castle, GameState, GameUnit } from '../../types/game';
 
-const LANES = [0.28, 0.5, 0.72];
+const LANES = [...LANE_Y_RATIOS];
 
 export function getUnitType(unit: GameUnit): 'melee' | 'ranged' | 'tank' | 'siege' {
   return AGES[unit.age].units[unit.type].type;
