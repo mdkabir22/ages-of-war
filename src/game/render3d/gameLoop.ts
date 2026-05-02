@@ -1,6 +1,7 @@
 import { useGameStore } from '../../core/state';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from '../../core/map';
 import { updateCameraRig } from './cameraRig';
+import { spawnAgeUpFlash, spawnHitPuff, tickEffects, type EffectsState } from './effects3D';
 import { draw3DTouchIndicator, render3DOverlay } from './overlay';
 import { tickWorldFrame } from './worldTick';
 
@@ -33,6 +34,7 @@ interface Start3DGameLoopOptions {
   };
   waterMesh: any | null;
   syncMeshes: () => void;
+  effects: EffectsState;
   overlayCtx: CanvasRenderingContext2D | null;
   getSelectionBox: () => SelectionBox | null;
   getTouchIndicator: () => TouchIndicator | null;
@@ -41,6 +43,7 @@ interface Start3DGameLoopOptions {
 export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
   let animId = 0;
   let prevTime = performance.now();
+  let prevAge: string | null = null;
 
   const loop = () => {
     try {
@@ -53,6 +56,11 @@ export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
       }
 
       const renderState = useGameStore.getState();
+      // Detect age advancement and trigger a celebratory flash effect.
+      if (prevAge !== null && prevAge !== renderState.currentAge) {
+        spawnAgeUpFlash(options.effects, DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT);
+      }
+      prevAge = renderState.currentAge;
       const cam2 = renderState.camera;
       const shake = renderState.cameraShake.offset;
       const w = options.renderer.domElement.width;
@@ -70,6 +78,9 @@ export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
       }
 
       options.syncMeshes();
+      tickEffects(options.effects, now, (color, x, y, z) => {
+        spawnHitPuff(options.effects, x, y, z, color);
+      });
       options.renderer.render(options.scene, options.camera);
 
       if (options.overlayCtx) {

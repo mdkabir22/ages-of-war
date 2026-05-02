@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useGameStore } from '../core/state';
 import { startEnemyAI } from './EnemyAI';
 import { createCameraRigState } from './render3d/cameraRig';
+import { createEffectsState, disposeAllEffects } from './render3d/effects3D';
 import { start3DGameLoop } from './render3d/gameLoop';
 import { setup3DInputHandlers } from './render3d/inputHandlers';
 import { sync3DMeshes } from './render3d/meshSync';
@@ -109,6 +110,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     });
 
     const cameraRigState = createCameraRigState();
+    const effectsState = createEffectsState(scene);
 
     const layoutSize = () => {
       const vv = window.visualViewport;
@@ -160,6 +162,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
         selectionRings,
         ringGeo,
         ringMat,
+        effects: effectsState,
       });
 
     layoutSize();
@@ -173,6 +176,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       cameraRigState,
       waterMesh: waterBuilt?.mesh ?? null,
       syncMeshes,
+      effects: effectsState,
       overlayCtx: overlayCtx ?? null,
       getSelectionBox: inputController.getSelectionBox,
       getTouchIndicator: inputController.getTouchIndicator,
@@ -187,6 +191,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       window.clearInterval(economyId);
       stopEnemyAI();
 
+      disposeAllEffects(effectsState);
       unitMeshes.forEach((entry) => {
         scene.remove(entry.group);
         entry.geometries.forEach((g: { dispose?: () => void }) => g.dispose?.());

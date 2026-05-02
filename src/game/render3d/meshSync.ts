@@ -1,14 +1,26 @@
 import * as THREE from 'three';
 import { useGameStore } from '../../core/state';
+import type { Unit } from '../../core/types';
 import {
   buildBuildingMesh,
   buildUnitMesh,
   disposeBuildingVisual,
-  disposeUnitVisual,
   getBuildingDims,
   getUnitDims,
 } from './entityVisuals';
+import {
+  spawnDeathFx,
+  spawnHitPuff,
+  spawnProjectile,
+  type EffectsState,
+} from './effects3D';
 import { facingDestination, terrainHeightAt } from './spatial';
+import {
+  applyUnitAnimation,
+  createUnitAnimState,
+  rememberBaseTransforms,
+  type UnitAnimState,
+} from './unitAnimation';
 
 interface UnitVisualEntry {
   group: any;
@@ -22,6 +34,8 @@ interface UnitVisualEntry {
   unitType: string;
   owner: string;
   baseFillWidth: number;
+  anim: UnitAnimState;
+  lastSeenUnit: Unit;
 }
 
 interface BuildingVisualEntry {
@@ -43,18 +57,60 @@ interface MeshSyncOptions {
   selectionRings: Map<string, any>;
   ringGeo: any;
   ringMat: any;
+  effects: EffectsState;
+}
+
+function findAttackTargetPos(state: ReturnType<typeof useGameStore.getState>, attacker: Unit): {
+  x: number;
+  z: number;
+} | null {
+  // Choose nearest opponent unit/building within attacker.range as a best guess
+  // for the attack target (the engine doesn't store explicit target IDs per attack).
+  const enemies = state.units.filter((u) => u.owner !== attacker.owner && u.hp > 0);
+  let bestX = 0;
+  let bestZ = 0;
+  let bestDist = Infinity;
+  for (const e of enemies) {
+    const dx = e.position.x - attacker.position.x;
+    const dz = e.position.y - attacker.position.y;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) {
+      bestDist = d;
+      bestX = e.position.x + 16;
+      bestZ = e.position.y + 16;
+    }
+  }
+  const buildings = state.buildings.filter((b) => b.owner !== attacker.owner);
+  for (const b of buildings) {
+    const bx = b.position.x + 16;
+    const bz = b.position.y + 16;
+    const dx = bx - attacker.position.x;
+    const dz = bz - attacker.position.y;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) {
+      bestDist = d;
+      bestX = bx;
+      bestZ = bz;
+    }
+  }
+  if (bestDist === Infinity) return null;
+  return { x: bestX, z: bestZ };
 }
 
 export function sync3DMeshes(options: MeshSyncOptions): void {
   const state = useGameStore.getState();
   const terrainMap = state.terrain;
+  const now = performance.now();
+  const dt = 1 / 60;
 
+  // Detect dead/removed units: spawn death FX before deleting.
   const unitIds = new Set(state.units.map((u) => u.id));
-  for (const id of options.unitMeshes.keys()) {
+  for (const id of Array.from(options.unitMeshes.keys())) {
     if (!unitIds.has(id)) {
       const entry = options.unitMeshes.get(id)!;
-      options.scene.remove(entry.group);
-      disposeUnitVisual(entry);
+      // Hand the visual over to the death-fx pool which will fade it out
+      // and dispose its geometries/materials when finished.
+      spawnDeathFx(options.effects, entry.group, entry.geometries, entry.materials);
       options.unitMeshes.delete(id);
     }
   }
@@ -67,9 +123,6 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
       tx >= 0 && ty >= 0 && tx < width && ty < height
         ? tiles[ty * width + tx]
         : 0;
-    // 0 = unexplored, 1 = explored (memory), 2 = currently visible.
-    // Player units always visible. Enemy units render as ghosts in
-    // explored fog and are hidden only in completely unexplored tiles.
     const isPlayer = u.owner !== 'enemy';
     const inVision = tile === 2;
     const inMemory = tile === 1;
@@ -82,25 +135,30 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
 
     if (!entry || needsRebuild) {
       if (entry) {
-        options.scene.remove(entry.group);
-        disposeUnitVisual(entry);
+        // Type/owner change — fade the old shell out cleanly.
+        spawnDeathFx(options.effects, entry.group, entry.geometries, entry.materials);
         options.unitMeshes.delete(u.id);
       }
       const built = buildUnitMesh(u);
       const dims = getUnitDims(u.type);
+      // Capture local body/head base transforms so animation deltas
+      // are relative to the rest pose.
+      rememberBaseTransforms(built.body, built.head);
       entry = {
         ...built,
         unitType: u.type,
         owner: u.owner,
         baseFillWidth: dims.bodyW * 1.55,
+        anim: createUnitAnimState(u),
+        lastSeenUnit: u,
       };
       options.unitMeshes.set(u.id, entry);
       options.scene.add(entry.group);
     }
 
     entry.group.visible = visible;
+    entry.lastSeenUnit = u;
 
-    // Dim enemies when out-of-vision (memory only) for a recon-style cue.
     const bodyMat = entry.body.material as { opacity?: number; transparent?: boolean };
     const headMat = entry.head.material as { opacity?: number; transparent?: boolean };
     if (bodyMat && headMat) {
@@ -125,12 +183,40 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
       }
     }
 
-    // Health bar fill width by hp ratio.
+    // Walk bob + attack pulse + emit attack FX if a strike just landed.
+    const animResult = applyUnitAnimation(
+      u,
+      entry.anim,
+      entry.body,
+      entry.head,
+      entry.banner,
+      entry.group,
+      now,
+      dt
+    );
+    if (animResult.attacked && visible) {
+      const target = findAttackTargetPos(state, u);
+      if (target) {
+        const dims = getUnitDims(u.type);
+        spawnProjectile(
+          options.effects,
+          u.type,
+          u.owner,
+          ux,
+          groundY + dims.bodyH * 0.85,
+          uz,
+          target.x,
+          terrainHeightAt(target.x, target.z, terrainMap) + 8,
+          target.z
+        );
+      }
+    }
+
+    // Health bar fill (with a fresh-damage flash via opacity boost).
     const hpRatio = Math.max(0, Math.min(1, u.maxHp > 0 ? u.hp / u.maxHp : 0));
     entry.healthFill.scale.x = Math.max(0.001, hpRatio);
     entry.healthFill.position.x = -((entry.baseFillWidth) * (1 - hpRatio)) / 2;
 
-    // Recolor fill based on hp severity.
     const fillMat = entry.healthFill.material as { color?: { setHex?: (n: number) => void } };
     if (fillMat.color?.setHex) {
       const color =
@@ -138,7 +224,6 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
       fillMat.color.setHex(color);
     }
 
-    // Billboard the health plates toward the camera (yaw only).
     entry.healthBg.rotation.y = -entry.group.rotation.y;
     entry.healthFill.rotation.y = -entry.group.rotation.y;
   }
@@ -147,8 +232,8 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
   for (const id of options.buildingMeshes.keys()) {
     if (!buildingIds.has(id)) {
       const entry = options.buildingMeshes.get(id)!;
-      options.scene.remove(entry.group);
-      disposeBuildingVisual(entry);
+      // Building destroyed — also use death-fx so the rubble fades + topples.
+      spawnDeathFx(options.effects, entry.group, entry.geometries, entry.materials);
       options.buildingMeshes.delete(id);
     }
   }
@@ -177,6 +262,13 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
     const bz = b.position.y + dims.baseD / 2;
     const bgY = terrainHeightAt(bx, bz, terrainMap);
     entry.group.position.set(bx, bgY, bz);
+
+    // Flash building when damaged: subtle pulse on trim color via hp ratio.
+    const trimMat = entry.trim.material as { emissiveIntensity?: number };
+    if (trimMat) {
+      const hpRatio = b.maxHp > 0 ? b.hp / b.maxHp : 1;
+      trimMat.emissiveIntensity = 0.15 + (1 - hpRatio) * 0.4;
+    }
   }
 
   const selected = new Set(state.selectedIds);
@@ -216,3 +308,6 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
     ring.scale.set(pulse, pulse, 1);
   }
 }
+
+/** Re-export for callers that need to hand back the puff helper. */
+export { spawnHitPuff };
