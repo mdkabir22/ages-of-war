@@ -1,21 +1,48 @@
 import * as THREE from 'three';
 import { useGameStore } from '../../core/state';
-import type { Unit } from '../../core/types';
-import { facingDestination, terrainHeightAt, unitBoxDims } from './spatial';
+import {
+  buildBuildingMesh,
+  buildUnitMesh,
+  disposeBuildingVisual,
+  disposeUnitVisual,
+  getBuildingDims,
+  getUnitDims,
+} from './entityVisuals';
+import { facingDestination, terrainHeightAt } from './spatial';
+
+interface UnitVisualEntry {
+  group: any;
+  body: any;
+  head: any;
+  banner: any;
+  healthBg: any;
+  healthFill: any;
+  geometries: any[];
+  materials: any[];
+  unitType: string;
+  owner: string;
+  baseFillWidth: number;
+}
+
+interface BuildingVisualEntry {
+  group: any;
+  base: any;
+  roof: any | null;
+  trim: any;
+  geometries: any[];
+  materials: any[];
+  buildingType: string;
+  owner: string;
+}
 
 interface MeshSyncOptions {
   fogTileSize: number;
-  buildingVisualSize: number;
   scene: any;
-  unitMeshes: Map<string, any>;
-  buildingMeshes: Map<string, any>;
+  unitMeshes: Map<string, UnitVisualEntry>;
+  buildingMeshes: Map<string, BuildingVisualEntry>;
   selectionRings: Map<string, any>;
   ringGeo: any;
   ringMat: any;
-  matUnitPlayer: any;
-  matUnitEnemy: any;
-  matBuildingPlayer: any;
-  matBuildingEnemy: any;
 }
 
 export function sync3DMeshes(options: MeshSyncOptions): void {
@@ -25,9 +52,9 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
   const unitIds = new Set(state.units.map((u) => u.id));
   for (const id of options.unitMeshes.keys()) {
     if (!unitIds.has(id)) {
-      const m = options.unitMeshes.get(id)!;
-      options.scene.remove(m);
-      m.geometry.dispose();
+      const entry = options.unitMeshes.get(id)!;
+      options.scene.remove(entry.group);
+      disposeUnitVisual(entry);
       options.unitMeshes.delete(id);
     }
   }
@@ -36,82 +63,120 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
     const tx = Math.floor((u.position.x + 16) / options.fogTileSize);
     const ty = Math.floor((u.position.y + 16) / options.fogTileSize);
     const { width, height, tiles } = state.fog;
-    const visible =
-      u.owner !== 'enemy' ||
-      (tx >= 0 &&
-        ty >= 0 &&
-        tx < width &&
-        ty < height &&
-        tiles[ty * width + tx] === 2);
+    const tile =
+      tx >= 0 && ty >= 0 && tx < width && ty < height
+        ? tiles[ty * width + tx]
+        : 0;
+    // 0 = unexplored, 1 = explored (memory), 2 = currently visible.
+    // Player units always visible. Enemy units render as ghosts in
+    // explored fog and are hidden only in completely unexplored tiles.
+    const isPlayer = u.owner !== 'enemy';
+    const inVision = tile === 2;
+    const inMemory = tile === 1;
+    const visible = isPlayer || inVision || inMemory;
+    const ghostInFog = !isPlayer && !inVision;
 
-    let mesh = options.unitMeshes.get(u.id);
-    const dims = unitBoxDims(u.type);
-    const needNewGeom =
-      !mesh ||
-      (mesh.userData as { unitType?: Unit['type'] }).unitType !== u.type ||
-      (mesh.userData as { owner?: string }).owner !== u.owner;
+    let entry = options.unitMeshes.get(u.id);
+    const needsRebuild =
+      !entry || entry.unitType !== u.type || entry.owner !== u.owner;
 
-    if (!mesh || needNewGeom) {
-      if (mesh) {
-        options.scene.remove(mesh);
-        mesh.geometry.dispose();
+    if (!entry || needsRebuild) {
+      if (entry) {
+        options.scene.remove(entry.group);
+        disposeUnitVisual(entry);
         options.unitMeshes.delete(u.id);
       }
-      const geo = new THREE.BoxGeometry(dims.w, dims.h, dims.d);
-      mesh = new THREE.Mesh(geo, u.owner === 'player' ? options.matUnitPlayer : options.matUnitEnemy);
-      mesh.castShadow = true;
-      mesh.userData = { unitType: u.type, owner: u.owner };
-      options.unitMeshes.set(u.id, mesh);
-      options.scene.add(mesh);
+      const built = buildUnitMesh(u);
+      const dims = getUnitDims(u.type);
+      entry = {
+        ...built,
+        unitType: u.type,
+        owner: u.owner,
+        baseFillWidth: dims.bodyW * 1.55,
+      };
+      options.unitMeshes.set(u.id, entry);
+      options.scene.add(entry.group);
     }
-    mesh.visible = visible;
-    mesh.material = u.owner === 'player' ? options.matUnitPlayer : options.matUnitEnemy;
+
+    entry.group.visible = visible;
+
+    // Dim enemies when out-of-vision (memory only) for a recon-style cue.
+    const bodyMat = entry.body.material as { opacity?: number; transparent?: boolean };
+    const headMat = entry.head.material as { opacity?: number; transparent?: boolean };
+    if (bodyMat && headMat) {
+      bodyMat.transparent = true;
+      headMat.transparent = true;
+      const op = ghostInFog ? 0.45 : 1;
+      bodyMat.opacity = op;
+      headMat.opacity = op;
+    }
+
     const ux = u.position.x + 16;
     const uz = u.position.y + 16;
     const groundY = terrainHeightAt(ux, uz, terrainMap);
-    const yLift = groundY + dims.h / 2 + 0.35;
-    mesh.position.set(ux, yLift, uz);
+    entry.group.position.set(ux, groundY + 0.35, uz);
 
     const face = facingDestination(u);
     if (face) {
       const dx = face.x - ux;
       const dz = face.z - uz;
       if (Math.abs(dx) + Math.abs(dz) > 0.4) {
-        mesh.rotation.y = Math.atan2(dx, dz);
+        entry.group.rotation.y = Math.atan2(dx, dz);
       }
-    } else {
-      mesh.rotation.y = 0;
     }
+
+    // Health bar fill width by hp ratio.
+    const hpRatio = Math.max(0, Math.min(1, u.maxHp > 0 ? u.hp / u.maxHp : 0));
+    entry.healthFill.scale.x = Math.max(0.001, hpRatio);
+    entry.healthFill.position.x = -((entry.baseFillWidth) * (1 - hpRatio)) / 2;
+
+    // Recolor fill based on hp severity.
+    const fillMat = entry.healthFill.material as { color?: { setHex?: (n: number) => void } };
+    if (fillMat.color?.setHex) {
+      const color =
+        hpRatio > 0.55 ? 0x22c55e : hpRatio > 0.25 ? 0xfacc15 : 0xef4444;
+      fillMat.color.setHex(color);
+    }
+
+    // Billboard the health plates toward the camera (yaw only).
+    entry.healthBg.rotation.y = -entry.group.rotation.y;
+    entry.healthFill.rotation.y = -entry.group.rotation.y;
   }
 
   const buildingIds = new Set(state.buildings.map((b) => b.id));
   for (const id of options.buildingMeshes.keys()) {
     if (!buildingIds.has(id)) {
-      const m = options.buildingMeshes.get(id)!;
-      options.scene.remove(m);
-      m.geometry.dispose();
+      const entry = options.buildingMeshes.get(id)!;
+      options.scene.remove(entry.group);
+      disposeBuildingVisual(entry);
       options.buildingMeshes.delete(id);
     }
   }
 
   for (const b of state.buildings) {
-    let mesh = options.buildingMeshes.get(b.id);
-    if (!mesh) {
-      const geo = new THREE.BoxGeometry(options.buildingVisualSize, 26, options.buildingVisualSize);
-      mesh = new THREE.Mesh(
-        geo,
-        b.owner === 'player' ? options.matBuildingPlayer : options.matBuildingEnemy
-      );
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      options.buildingMeshes.set(b.id, mesh);
-      options.scene.add(mesh);
+    let entry = options.buildingMeshes.get(b.id);
+    const needsRebuild =
+      !entry || entry.buildingType !== b.type || entry.owner !== b.owner;
+    if (!entry || needsRebuild) {
+      if (entry) {
+        options.scene.remove(entry.group);
+        disposeBuildingVisual(entry);
+        options.buildingMeshes.delete(b.id);
+      }
+      const built = buildBuildingMesh(b);
+      entry = {
+        ...built,
+        buildingType: b.type,
+        owner: b.owner,
+      };
+      options.buildingMeshes.set(b.id, entry);
+      options.scene.add(entry.group);
     }
-    const bx = b.position.x + options.buildingVisualSize / 2;
-    const bz = b.position.y + options.buildingVisualSize / 2;
+    const dims = getBuildingDims(b.type);
+    const bx = b.position.x + dims.baseW / 2;
+    const bz = b.position.y + dims.baseD / 2;
     const bgY = terrainHeightAt(bx, bz, terrainMap);
-    mesh.position.set(bx, bgY + 13, bz);
-    mesh.material = b.owner === 'player' ? options.matBuildingPlayer : options.matBuildingEnemy;
+    entry.group.position.set(bx, bgY, bz);
   }
 
   const selected = new Set(state.selectedIds);
@@ -134,8 +199,9 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
       rx = unit.position.x + 16;
       rz = unit.position.y + 16;
     } else if (building) {
-      rx = building.position.x + options.buildingVisualSize / 2;
-      rz = building.position.y + options.buildingVisualSize / 2;
+      const dims = getBuildingDims(building.type);
+      rx = building.position.x + dims.baseW / 2;
+      rz = building.position.y + dims.baseD / 2;
     } else continue;
 
     let ring = options.selectionRings.get(id);

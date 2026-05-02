@@ -25,8 +25,10 @@ export function updateCameraRig(
   centerZ: number,
   dt: number
 ): void {
-  state.desiredCam.set(centerX, 620, centerZ + 480);
-  state.desiredLook.set(centerX, 0, centerZ);
+  // Cinematic isometric-style angle: closer + lower so units have presence
+  // while still seeing a wide swath of the battlefield.
+  state.desiredCam.set(centerX, 520, centerZ + 540);
+  state.desiredLook.set(centerX, 0, centerZ - 40);
   const k = Math.min(1, dt * 7.5);
 
   if (!state.cameraSmoothedReady) {

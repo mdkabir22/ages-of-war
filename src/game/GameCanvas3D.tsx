@@ -15,7 +15,7 @@ import { audio } from '../audio/manager';
 
 /** Fog grid matches GameCanvas / engine/state */
 const FOG_TILE_SIZE = 40;
-const BUILDING_VISUAL_SIZE = 42;
+const BUILDING_VISUAL_SIZE = 48;
 const TILE_PLACE = 40;
 
 interface GameCanvas3DProps {
@@ -84,11 +84,13 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
 
     const grid = new THREE.GridHelper(
       Math.max(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT),
-      48,
+      32,
       0x1e293b,
       0x0f172a
     );
     grid.position.set(DEFAULT_MAP_WIDTH / 2, 0.02, DEFAULT_MAP_HEIGHT / 2);
+    (grid.material as { transparent?: boolean; opacity?: number }).transparent = true;
+    (grid.material as { opacity?: number }).opacity = 0.18;
     scene.add(grid);
 
     const terrainGridHelper = grid;
@@ -97,7 +99,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     const buildingMeshes = new Map<string, any>();
     const selectionRings = new Map<string, any>();
 
-    const ringGeo = new THREE.RingGeometry(16, 24, 52);
+    const ringGeo = new THREE.RingGeometry(18, 26, 52);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0xfbbf24,
       transparent: true,
@@ -107,11 +109,6 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     });
 
     const cameraRigState = createCameraRigState();
-
-    const matUnitPlayer = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.65 });
-    const matUnitEnemy = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.65 });
-    const matBuildingPlayer = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.75 });
-    const matBuildingEnemy = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.75 });
 
     const layoutSize = () => {
       const vv = window.visualViewport;
@@ -157,17 +154,12 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     const syncMeshes = () =>
       sync3DMeshes({
         fogTileSize: FOG_TILE_SIZE,
-        buildingVisualSize: BUILDING_VISUAL_SIZE,
         scene,
         unitMeshes,
         buildingMeshes,
         selectionRings,
         ringGeo,
         ringMat,
-        matUnitPlayer,
-        matUnitEnemy,
-        matBuildingPlayer,
-        matBuildingEnemy,
       });
 
     layoutSize();
@@ -195,14 +187,16 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       window.clearInterval(economyId);
       stopEnemyAI();
 
-      unitMeshes.forEach((m) => {
-        scene.remove(m);
-        m.geometry.dispose();
+      unitMeshes.forEach((entry) => {
+        scene.remove(entry.group);
+        entry.geometries.forEach((g: { dispose?: () => void }) => g.dispose?.());
+        entry.materials.forEach((m: { dispose?: () => void }) => m.dispose?.());
       });
       unitMeshes.clear();
-      buildingMeshes.forEach((m) => {
-        scene.remove(m);
-        m.geometry.dispose();
+      buildingMeshes.forEach((entry) => {
+        scene.remove(entry.group);
+        entry.geometries.forEach((g: { dispose?: () => void }) => g.dispose?.());
+        entry.materials.forEach((m: { dispose?: () => void }) => m.dispose?.());
       });
       buildingMeshes.clear();
       selectionRings.forEach((ring) => {
@@ -227,10 +221,6 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       const gm = terrainGridHelper.material;
       if (Array.isArray(gm)) gm.forEach((m) => m.dispose());
       else gm.dispose();
-      matUnitPlayer.dispose();
-      matUnitEnemy.dispose();
-      matBuildingPlayer.dispose();
-      matBuildingEnemy.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);

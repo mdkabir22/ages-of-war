@@ -1,4 +1,5 @@
 import { useGameStore } from '../../core/state';
+import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from '../../core/map';
 import { updateCameraRig } from './cameraRig';
 import { draw3DTouchIndicator, render3DOverlay } from './overlay';
 import { tickWorldFrame } from './worldTick';
@@ -56,8 +57,10 @@ export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
       const shake = renderState.cameraShake.offset;
       const w = options.renderer.domElement.width;
       const h = options.renderer.domElement.height;
-      const cx = cam2.x + w / 2 + shake.x;
-      const cz = cam2.y + h / 2 + shake.y;
+      // Anchor the 3D camera around the WORLD center (in world units),
+      // not around screen-pixel center. cam2 is treated as a pan offset.
+      const cx = DEFAULT_MAP_WIDTH / 2 + cam2.x + shake.x;
+      const cz = DEFAULT_MAP_HEIGHT / 2 + cam2.y + shake.y;
 
       updateCameraRig(options.camera, options.cameraRigState, cx, cz, dt);
       options.cameraRef.current = options.camera;
