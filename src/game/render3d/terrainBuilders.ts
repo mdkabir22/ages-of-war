@@ -184,6 +184,64 @@ export function buildWaterSurface(terrain: TerrainTile[][]): {
   };
 }
 
+/**
+ * Convert a hex color string like "#7fd066" into normalized RGB in [0,1].
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  const n = parseInt(h, 16);
+  return {
+    r: ((n >> 16) & 0xff) / 255,
+    g: ((n >> 8) & 0xff) / 255,
+    b: (n & 0xff) / 255,
+  };
+}
+
+/**
+ * Cheap, continuous value-noise in [0,1]. Bilinearly interpolates a
+ * deterministic per-cell hash so the result has no visible grid seams,
+ * unlike per-tile color variants which produce an obvious checkerboard.
+ */
+function valueNoise(x: number, y: number): number {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const hash = (a: number, b: number): number => {
+    const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  const v00 = hash(xi, yi);
+  const v10 = hash(xi + 1, yi);
+  const v01 = hash(xi, yi + 1);
+  const v11 = hash(xi + 1, yi + 1);
+  // Smoothstep interpolation for soft transitions.
+  const sx = xf * xf * (3 - 2 * xf);
+  const sy = yf * yf * (3 - 2 * yf);
+  return (
+    v00 * (1 - sx) * (1 - sy) +
+    v10 * sx * (1 - sy) +
+    v01 * (1 - sx) * sy +
+    v11 * sx * sy
+  );
+}
+
+/**
+ * Two-octave noise gives finer surface detail without a single dominant
+ * frequency, which is what produced the "tiled squares" look before.
+ */
+function fbm2(x: number, y: number): number {
+  return valueNoise(x, y) * 0.65 + valueNoise(x * 2.13, y * 2.13) * 0.35;
+}
+
+/**
+ * Build the ground texture so it reads as continuous, organic terrain
+ * instead of a grid of solid colored squares. Each output pixel:
+ *   - Picks the biome color of the underlying tile
+ *   - Softly blends with neighbor biomes near tile boundaries (so grass <-> forest
+ *     and grass <-> water look like a gradient, not a hard edge)
+ *   - Modulates brightness with continuous fbm noise (no visible seams)
+ */
 export function buildTerrainFromMap(terrain: TerrainTile[][]): {
   mesh: any;
   dispose: () => void;
@@ -192,9 +250,17 @@ export function buildTerrainFromMap(terrain: TerrainTile[][]): {
   const rows = terrain.length;
   const cw = cols * TILE_SIZE;
   const ch = rows * TILE_SIZE;
+
+  // Render the texture at a lower per-tile resolution and let GPU
+  // mip-mapping/anisotropy upscale it: massively cheaper than 2400x1600
+  // per-pixel work, and the result still hides the grid under the noise.
+  const PIXELS_PER_TILE = 8;
+  const tw = cols * PIXELS_PER_TILE;
+  const th = rows * PIXELS_PER_TILE;
+
   const canvas = document.createElement('canvas');
-  canvas.width = cw;
-  canvas.height = ch;
+  canvas.width = tw;
+  canvas.height = th;
   const ctx2d = canvas.getContext('2d');
   if (!ctx2d) {
     const geo = new THREE.PlaneGeometry(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT);
@@ -210,22 +276,78 @@ export function buildTerrainFromMap(terrain: TerrainTile[][]): {
       },
     };
   }
+
+  // Pre-resolve the base color of each tile (biome-only, no per-tile variant).
+  const tileColor: { r: number; g: number; b: number }[][] = [];
   for (let ty = 0; ty < rows; ty++) {
+    const row: { r: number; g: number; b: number }[] = [];
     for (let tx = 0; tx < cols; tx++) {
       const tile = terrain[ty][tx];
-      const palette = TERRAIN_COLORS[tile.type];
-      ctx2d.fillStyle = palette[tile.variant % palette.length];
-      ctx2d.fillRect(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      row.push(hexToRgb(TERRAIN_COLORS[tile.type][0]));
+    }
+    tileColor.push(row);
+  }
+  const sampleTile = (tx: number, ty: number) => {
+    const cx = Math.max(0, Math.min(cols - 1, tx));
+    const cy = Math.max(0, Math.min(rows - 1, ty));
+    return tileColor[cy][cx];
+  };
+
+  const img = ctx2d.createImageData(tw, th);
+  const data = img.data;
+
+  for (let py = 0; py < th; py++) {
+    for (let px = 0; px < tw; px++) {
+      // Sample location in tile-space (fractional => sits between tiles).
+      const u = px / PIXELS_PER_TILE;
+      const v = py / PIXELS_PER_TILE;
+      const tx = Math.floor(u);
+      const ty = Math.floor(v);
+      const fu = u - tx;
+      const fv = v - ty;
+
+      // Bilinear blend across the 4 neighbor biomes so tile boundaries
+      // dissolve into soft gradients instead of hard color steps.
+      const c00 = sampleTile(tx, ty);
+      const c10 = sampleTile(tx + 1, ty);
+      const c01 = sampleTile(tx, ty + 1);
+      const c11 = sampleTile(tx + 1, ty + 1);
+      const w00 = (1 - fu) * (1 - fv);
+      const w10 = fu * (1 - fv);
+      const w01 = (1 - fu) * fv;
+      const w11 = fu * fv;
+      let r = c00.r * w00 + c10.r * w10 + c01.r * w01 + c11.r * w11;
+      let g = c00.g * w00 + c10.g * w10 + c01.g * w01 + c11.g * w11;
+      let b = c00.b * w00 + c10.b * w10 + c01.b * w01 + c11.b * w11;
+
+      // Continuous brightness noise — no per-tile cell, so no checkerboard.
+      const n = fbm2(u * 1.7, v * 1.7);
+      const tint = 0.82 + n * 0.36;
+      r = Math.min(1, Math.max(0, r * tint));
+      g = Math.min(1, Math.max(0, g * tint));
+      b = Math.min(1, Math.max(0, b * tint));
+
+      const i = (py * tw + px) * 4;
+      data[i] = (r * 255) | 0;
+      data[i + 1] = (g * 255) | 0;
+      data[i + 2] = (b * 255) | 0;
+      data[i + 3] = 255;
     }
   }
+  ctx2d.putImageData(img, 0, 0);
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+
   const geo = new THREE.PlaneGeometry(cw, ch, 1, 1);
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
-    roughness: 0.9,
-    metalness: 0.04,
+    roughness: 0.92,
+    metalness: 0.02,
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;

@@ -100,18 +100,9 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     const waterBuilt = buildWaterSurface(terrain);
     if (waterBuilt) scene.add(waterBuilt.mesh);
 
-    const grid = new THREE.GridHelper(
-      Math.max(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT),
-      32,
-      0x1e293b,
-      0x0f172a
-    );
-    grid.position.set(DEFAULT_MAP_WIDTH / 2, 0.02, DEFAULT_MAP_HEIGHT / 2);
-    (grid.material as { transparent?: boolean; opacity?: number }).transparent = true;
-    (grid.material as { opacity?: number }).opacity = 0.18;
-    scene.add(grid);
-
-    const terrainGridHelper = grid;
+    // Grid helper removed: with the new continuous terrain texture the
+    // dark grid lines were the only thing still revealing the underlying
+    // tile structure, making the world look mechanically tiled.
 
     const unitMeshes = new Map<string, any>();
     const buildingMeshes = new Map<string, any>();
@@ -262,11 +253,6 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
         scene.remove(waterBuilt.mesh);
         waterBuilt.dispose();
       }
-      scene.remove(terrainGridHelper);
-      terrainGridHelper.geometry.dispose();
-      const gm = terrainGridHelper.material;
-      if (Array.isArray(gm)) gm.forEach((m) => m.dispose());
-      else gm.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
