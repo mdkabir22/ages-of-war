@@ -63,23 +63,31 @@ export function buildForestTrees(terrain: TerrainTile[][]): {
 }
 
 /**
- * Build a chunky low-poly mountain mesh per `hill` tile so the eastern
- * range visibly rises from the ground instead of just being a flat color.
+ * Build a chunky low-poly mountain mesh per `hill` tile in the eastern
+ * range so it visibly rises from the ground. Hill tiles sprinkled in the
+ * central battlefield (used for terrain variety) stay as flat textured
+ * ground so they don't clutter the playable area with cone props.
  */
 export function buildMountainRange(terrain: TerrainTile[][]): {
   mesh: any;
   dispose: () => void;
 } | null {
+  const cols = terrain[0]?.length ?? 0;
+  // Mountains only render east of this column (matches the mountain band
+  // produced by core/map's generateMap).
+  const eastStart = Math.floor(cols * 0.66);
+  const isMountainTile = (tx: number, ty: number): boolean =>
+    tx >= eastStart && terrain[ty]?.[tx]?.type === 'hill';
+
   let count = 0;
   for (let ty = 0; ty < terrain.length; ty++) {
     for (let tx = 0; tx < (terrain[ty]?.length ?? 0); tx++) {
-      if (terrain[ty][tx]?.type === 'hill') count++;
+      if (isMountainTile(tx, ty)) count++;
     }
   }
   if (count === 0) return null;
 
-  // Cone with 5 sides reads as a stylised mountain peak.
-  const geo = new THREE.ConeGeometry(TILE_SIZE * 0.65, TILE_SIZE * 1.4, 5);
+  const geo = new THREE.ConeGeometry(TILE_SIZE * 0.7, TILE_SIZE * 1.6, 5);
   const mat = new THREE.MeshStandardMaterial({
     color: 0x9b8a72,
     roughness: 0.95,
@@ -94,15 +102,18 @@ export function buildMountainRange(terrain: TerrainTile[][]): {
   let i = 0;
   for (let ty = 0; ty < terrain.length; ty++) {
     for (let tx = 0; tx < (terrain[ty]?.length ?? 0); tx++) {
-      if (terrain[ty][tx]?.type !== 'hill') continue;
+      if (!isMountainTile(tx, ty)) continue;
       const rnd = (salt: number) => {
         const v = Math.sin(tx * 12.9898 + ty * 78.233 + salt * 31.37) * 43758.5453123;
         return v - Math.floor(v);
       };
       const wx = tx * TILE_SIZE + TILE_SIZE / 2 + (rnd(1) - 0.5) * 6;
       const wz = ty * TILE_SIZE + TILE_SIZE / 2 + (rnd(2) - 0.5) * 6;
-      const scale = 0.85 + rnd(3) * 0.6;
-      const peakY = (TILE_SIZE * 1.4 * scale) / 2;
+      // Bigger peaks the deeper east we go, so the range silhouette
+      // builds towards a tall ridge near the map edge.
+      const eastDepth = (tx - eastStart) / Math.max(1, cols - eastStart);
+      const scale = 0.9 + rnd(3) * 0.5 + eastDepth * 0.7;
+      const peakY = (TILE_SIZE * 1.6 * scale) / 2;
       dummy.position.set(wx, peakY, wz);
       dummy.rotation.y = rnd(4) * Math.PI * 2;
       dummy.scale.set(scale, scale, scale);

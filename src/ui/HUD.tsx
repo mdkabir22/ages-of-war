@@ -72,9 +72,11 @@ export function HUD({ onPause }: { onPause: () => void }) {
         </button>
       </div>
 
-      <div className="absolute top-2 left-2 max-w-xs rounded-xl bg-black/80 p-3 text-white border border-white/10">
-        <div className="text-yellow-400 font-bold text-sm">{state.mission.name}</div>
-        <div className="text-white/70 text-xs mt-1">{state.mission.type} mission</div>
+      {/* On narrow screens the top-center age bar overlaps anything at top-2,
+          so push the mission card down below it; on >=sm widths it sits at top-2. */}
+      <div className="absolute top-16 sm:top-2 left-2 max-w-[60vw] sm:max-w-xs rounded-xl bg-black/80 p-2.5 sm:p-3 text-white border border-white/10">
+        <div className="text-yellow-400 font-bold text-xs sm:text-sm leading-tight truncate">{state.mission.name}</div>
+        <div className="text-white/70 text-[10px] sm:text-xs mt-1 capitalize">{state.mission.type} mission</div>
         <div
           className={`text-xs mt-1 font-bold ${
             state.missionStatus === 'active'

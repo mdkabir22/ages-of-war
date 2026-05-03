@@ -128,6 +128,9 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
 
     const cameraRigState = createCameraRigState();
     const effectsState = createEffectsState(scene);
+    // 3D-only camera pan offset (world units), independent of state.camera
+    // which the 2D renderer uses with different (top-left scroll) semantics.
+    const panOffsetRef = { current: { x: 0, y: 0 } };
     // Initialize postprocessing lazily — guarded so a shader compile failure
     // doesn't block the entire 3D pipeline. We default to a 1x1 size and let
     // layoutSize resize it on the first frame.
@@ -160,10 +163,13 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     canvasEl.style.width = '100%';
     canvasEl.style.height = '100%';
 
-    const inputController = setup3DInputHandlers(canvasEl, pausedRef, cameraRef, {
-      buildingVisualSize: BUILDING_VISUAL_SIZE,
-      tilePlace: TILE_PLACE,
-    });
+    const inputController = setup3DInputHandlers(
+      canvasEl,
+      pausedRef,
+      cameraRef,
+      { buildingVisualSize: BUILDING_VISUAL_SIZE, tilePlace: TILE_PLACE },
+      panOffsetRef
+    );
 
     const economyId = window.setInterval(() => {
       const state = useGameStore.getState();
@@ -209,6 +215,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       overlayCtx: overlayCtx ?? null,
       getSelectionBox: inputController.getSelectionBox,
       getTouchIndicator: inputController.getTouchIndicator,
+      panOffsetRef,
     });
 
     return () => {

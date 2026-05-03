@@ -15,16 +15,28 @@ interface TouchIndicator {
   expiresAt: number;
 }
 
+interface PanOffsetRef {
+  current: { x: number; y: number };
+}
+
 export function setup3DInputHandlers(
   canvas: HTMLCanvasElement,
   pausedRef: MutableRefObject<boolean>,
   cameraRef: { current: any },
-  options: { buildingVisualSize: number; tilePlace: number }
+  options: { buildingVisualSize: number; tilePlace: number },
+  panOffsetRef: PanOffsetRef
 ): {
   cleanup: () => void;
   getSelectionBox: () => SelectionBox | null;
   getTouchIndicator: () => TouchIndicator | null;
 } {
+  // 3D pan moves the camera-anchor offset directly. Sensitivity is scaled
+  // by the user's pan-sensitivity preference so existing settings still apply.
+  const panBy = (dx: number, dy: number): void => {
+    const pan = useGameStore.getState().cameraPanSensitivity ?? 1;
+    panOffsetRef.current.x += dx * pan;
+    panOffsetRef.current.y += dy * pan;
+  };
   let isPanning = false;
   let panLastX = 0;
   let panLastY = 0;
@@ -49,11 +61,10 @@ export function setup3DInputHandlers(
   const handleKeyDown = (e: KeyboardEvent) => {
     if (pausedRef.current) return;
     const step = 24;
-    const store = useGameStore.getState();
-    if (e.key === 'w' || e.key === 'W') store.moveCamera(0, -step);
-    if (e.key === 's' || e.key === 'S') store.moveCamera(0, step);
-    if (e.key === 'a' || e.key === 'A') store.moveCamera(-step, 0);
-    if (e.key === 'd' || e.key === 'D') store.moveCamera(step, 0);
+    if (e.key === 'w' || e.key === 'W') panBy(0, -step);
+    if (e.key === 's' || e.key === 'S') panBy(0, step);
+    if (e.key === 'a' || e.key === 'A') panBy(-step, 0);
+    if (e.key === 'd' || e.key === 'D') panBy(step, 0);
   };
 
   const handleMouseDown = (e: MouseEvent) => {
@@ -83,7 +94,7 @@ export function setup3DInputHandlers(
       const dy = e.clientY - panLastY;
       panLastX = e.clientX;
       panLastY = e.clientY;
-      useGameStore.getState().moveCamera(-dx, -dy);
+      panBy(-dx, -dy);
     }
     if (isSelecting) {
       selectionCurrentX = e.clientX - rect.left;
@@ -186,7 +197,7 @@ export function setup3DInputHandlers(
     if (Math.abs(dx) > touchMoveThreshold || Math.abs(dy) > touchMoveThreshold) {
       touchMoved = true;
     }
-    useGameStore.getState().moveCamera(-dx, -dy);
+    panBy(-dx, -dy);
     e.preventDefault();
   };
 
