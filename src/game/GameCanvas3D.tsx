@@ -7,6 +7,7 @@ import { createEffectsState, disposeAllEffects } from './render3d/effects3D';
 import { start3DGameLoop } from './render3d/gameLoop';
 import { setup3DInputHandlers } from './render3d/inputHandlers';
 import { sync3DMeshes } from './render3d/meshSync';
+import { createPostProcessing, type PostProcessingState } from './render3d/postprocessing';
 import { buildForestTrees, buildTerrainFromMap, buildWaterSurface } from './render3d/terrainBuilders';
 import {
   DEFAULT_MAP_HEIGHT,
@@ -111,6 +112,16 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
 
     const cameraRigState = createCameraRigState();
     const effectsState = createEffectsState(scene);
+    // Initialize postprocessing lazily — guarded so a shader compile failure
+    // doesn't block the entire 3D pipeline. We default to a 1x1 size and let
+    // layoutSize resize it on the first frame.
+    let postFx: PostProcessingState | null = null;
+    try {
+      postFx = createPostProcessing(renderer, scene, camera, 1, 1);
+    } catch (err) {
+      console.warn('[GameCanvas3D] postprocessing unavailable, falling back to direct render', err);
+      postFx = null;
+    }
 
     const layoutSize = () => {
       const vv = window.visualViewport;
@@ -120,6 +131,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        postFx?.setSize(w, h);
       }
       if (overlayCanvas && overlayCtx) {
         overlayCanvas.width = w;
@@ -177,6 +189,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       waterMesh: waterBuilt?.mesh ?? null,
       syncMeshes,
       effects: effectsState,
+      postFx,
       overlayCtx: overlayCtx ?? null,
       getSelectionBox: inputController.getSelectionBox,
       getTouchIndicator: inputController.getTouchIndicator,
@@ -191,6 +204,7 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       window.clearInterval(economyId);
       stopEnemyAI();
 
+      postFx?.dispose();
       disposeAllEffects(effectsState);
       unitMeshes.forEach((entry) => {
         scene.remove(entry.group);

@@ -47,6 +47,10 @@ interface BuildingVisualEntry {
   materials: any[];
   buildingType: string;
   owner: string;
+  /** Real-time when the visual was first created — drives grow-in animation. */
+  spawnTime: number;
+  /** True until the construction puff has been emitted. */
+  pendingCompletePuff: boolean;
 }
 
 interface MeshSyncOptions {
@@ -253,6 +257,8 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
         ...built,
         buildingType: b.type,
         owner: b.owner,
+        spawnTime: now,
+        pendingCompletePuff: true,
       };
       options.buildingMeshes.set(b.id, entry);
       options.scene.add(entry.group);
@@ -263,11 +269,36 @@ export function sync3DMeshes(options: MeshSyncOptions): void {
     const bgY = terrainHeightAt(bx, bz, terrainMap);
     entry.group.position.set(bx, bgY, bz);
 
-    // Flash building when damaged: subtle pulse on trim color via hp ratio.
+    // Construction grow-in: first ~3.2s the building scales up from the
+    // ground while emitting a translucent emissive accent. When it finishes
+    // we emit a one-time completion puff for satisfying feedback.
+    const buildDurationMs = 3200;
+    const buildT = Math.min(1, (now - entry.spawnTime) / buildDurationMs);
+    const eased = 1 - Math.pow(1 - buildT, 3);
+    entry.group.scale.set(1, eased, 1);
+    // Optional micro-bobble on the final settle (~last 12% of build time).
+    if (buildT > 0.88 && buildT < 1) {
+      const settle = (buildT - 0.88) / 0.12;
+      entry.group.scale.y = eased + Math.sin(settle * Math.PI) * 0.04;
+    }
+    if (buildT >= 1 && entry.pendingCompletePuff) {
+      spawnHitPuff(
+        options.effects,
+        bx,
+        bgY + dims.baseH * 0.6,
+        bz,
+        b.owner === 'player' ? 0xfde68a : 0xfca5a5
+      );
+      entry.pendingCompletePuff = false;
+    }
+
+    // Trim accent emissive: stronger during construction + when damaged.
     const trimMat = entry.trim.material as { emissiveIntensity?: number };
     if (trimMat) {
       const hpRatio = b.maxHp > 0 ? b.hp / b.maxHp : 1;
-      trimMat.emissiveIntensity = 0.15 + (1 - hpRatio) * 0.4;
+      const damageBoost = (1 - hpRatio) * 0.4;
+      const buildBoost = (1 - buildT) * 0.55;
+      trimMat.emissiveIntensity = 0.15 + damageBoost + buildBoost;
     }
   }
 

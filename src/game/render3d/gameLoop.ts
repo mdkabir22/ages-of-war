@@ -3,6 +3,7 @@ import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH } from '../../core/map';
 import { updateCameraRig } from './cameraRig';
 import { spawnAgeUpFlash, spawnHitPuff, tickEffects, type EffectsState } from './effects3D';
 import { draw3DTouchIndicator, render3DOverlay } from './overlay';
+import type { PostProcessingState } from './postprocessing';
 import { tickWorldFrame } from './worldTick';
 
 interface SelectionBox {
@@ -35,6 +36,7 @@ interface Start3DGameLoopOptions {
   waterMesh: any | null;
   syncMeshes: () => void;
   effects: EffectsState;
+  postFx: PostProcessingState | null;
   overlayCtx: CanvasRenderingContext2D | null;
   getSelectionBox: () => SelectionBox | null;
   getTouchIndicator: () => TouchIndicator | null;
@@ -81,7 +83,13 @@ export function start3DGameLoop(options: Start3DGameLoopOptions): () => void {
       tickEffects(options.effects, now, (color, x, y, z) => {
         spawnHitPuff(options.effects, x, y, z, color);
       });
-      options.renderer.render(options.scene, options.camera);
+      // Render via the post-processing composer when available; otherwise
+      // fall back to direct renderer (e.g. on devices where shaders failed).
+      if (options.postFx && options.postFx.enabled) {
+        options.postFx.render();
+      } else {
+        options.renderer.render(options.scene, options.camera);
+      }
 
       if (options.overlayCtx) {
         render3DOverlay(
