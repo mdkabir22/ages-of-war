@@ -35,6 +35,20 @@ export function HUD({ onPause }: { onPause: () => void }) {
   const selectedQueue = state.productionQueues.find((q) => q.buildingId === selectedBuilding?.id);
   const queueHead = selectedQueue?.queue[0];
 
+  // Selected player villagers — used by the action panel to show jobs and
+  // expose a "Stop work" button so the player can rotate workers manually.
+  const selectedPlayerVillagers = state.units.filter(
+    (u) => state.selectedIds.includes(u.id) && u.owner === 'player' && u.type === 'villager'
+  );
+  const villagerJobsSummary = (() => {
+    if (selectedPlayerVillagers.length === 0) return null;
+    const counts: Record<string, number> = { wood: 0, food: 0, stone: 0, gold: 0, idle: 0 };
+    for (const v of selectedPlayerVillagers) {
+      counts[v.job ?? 'idle'] = (counts[v.job ?? 'idle'] ?? 0) + 1;
+    }
+    return counts;
+  })();
+
   const canAffordAgeUp = nextAgeCost
     ? Object.entries(nextAgeCost).every(([res, amount]) => state.resources[res as keyof typeof state.resources] >= amount)
     : false;
@@ -155,6 +169,31 @@ export function HUD({ onPause }: { onPause: () => void }) {
           </span>
         </div>
       </div>
+
+      {selectedPlayerVillagers.length > 0 && villagerJobsSummary && (
+        <div className="pointer-events-auto absolute bottom-20 right-3 sm:bottom-24 sm:right-4 w-52 sm:w-56 rounded-xl bg-black/85 p-3 text-white border border-amber-500/30 shadow-lg">
+          <div className="text-xs font-bold text-amber-300 mb-2">
+            Villagers ({selectedPlayerVillagers.length})
+          </div>
+          <div className="grid grid-cols-2 gap-1 text-[11px] mb-2">
+            <div className="flex justify-between"><span className="text-white/70">Wood</span><span className="text-amber-300 font-bold">{villagerJobsSummary.wood}</span></div>
+            <div className="flex justify-between"><span className="text-white/70">Food</span><span className="text-yellow-300 font-bold">{villagerJobsSummary.food}</span></div>
+            <div className="flex justify-between"><span className="text-white/70">Stone</span><span className="text-gray-300 font-bold">{villagerJobsSummary.stone}</span></div>
+            <div className="flex justify-between"><span className="text-white/70">Gold</span><span className="text-yellow-400 font-bold">{villagerJobsSummary.gold}</span></div>
+            <div className="flex justify-between col-span-2"><span className="text-white/70">Idle</span><span className="text-white font-bold">{villagerJobsSummary.idle}</span></div>
+          </div>
+          <div className="text-[10px] text-white/60 mb-2 leading-snug">
+            Tap a forest tile to chop wood, a hill tile to mine.
+          </div>
+          <button
+            type="button"
+            onClick={() => useGameStore.getState().clearVillagerJob()}
+            className="w-full rounded bg-white/10 hover:bg-white/20 px-2 py-1.5 text-xs font-bold border border-white/20"
+          >
+            Stop work
+          </button>
+        </div>
+      )}
 
       {selectedBuilding && (
         <div className="pointer-events-auto absolute bottom-4 right-4 w-56 rounded-xl bg-black/85 p-3 text-white border border-white/10">

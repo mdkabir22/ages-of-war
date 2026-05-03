@@ -18,6 +18,14 @@ export interface CameraShakeState {
   offset: Position;
 }
 
+/**
+ * Job a villager is assigned to. Set by `commandMoveSelectedUnits` when the
+ * player taps on a resource-bearing tile while the villager is selected,
+ * cleared when the villager is told to move to plain grass or via the HUD
+ * "Stop work" button. Other unit types ignore this field.
+ */
+export type VillagerJob = 'wood' | 'food' | 'stone' | 'gold';
+
 export interface Unit {
   id: string;
   type: UnitType;
@@ -33,6 +41,14 @@ export interface Unit {
   range: number;
   attackSpeed: number;
   lastAttackTime: number;
+  /** Active villager job (chop wood / gather food / mine stone or gold). */
+  job?: VillagerJob;
+  /**
+   * World-space tile center the villager works at. The villager walks here
+   * via the normal pathfinder, then idles on it generating the resource
+   * via the economy tick.
+   */
+  workTarget?: Position;
 }
 
 export interface Building {

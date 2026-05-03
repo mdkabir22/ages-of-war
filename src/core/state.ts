@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { AGES, BUILDING_COSTS, getBuildingMaxHp, getDamageMultiplier, getUnitStatsForAge, AGE_ORDER } from './types';
-import type { Age, Building, GameState, Position, ProductionQueue, Resource, Unit } from './types';
+import type { Age, Building, GameState, Position, ProductionQueue, Resource, Unit, VillagerJob } from './types';
 import { DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, generateMap, getTileAt, TERRAIN_EFFECTS, TILE_SIZE } from './map';
 import { buildMission } from './mission';
 import type { MissionType } from './mission';
@@ -172,32 +172,55 @@ function getPopulationCap(state: GameState): number {
   return base + houses * 5;
 }
 
+/**
+ * Approximate per-resource villager headcount used by `tickEconomy`.
+ *
+ * Villagers explicitly assigned a job (via `commandMoveSelectedUnits` on a
+ * resource tile) count fully toward that resource AND get a working bonus
+ * once they have actually reached their `workTarget`. Unassigned villagers
+ * default to food gathering so brand-new games still tick income while the
+ * player learns the job system.
+ */
 function getVillagerGatherBreakdown(state: GameState): {
   foodGatherers: number;
   woodGatherers: number;
   stoneGatherers: number;
   goldGatherers: number;
 } {
-  const playerVillagers = state.units.filter((u) => u.owner === 'player' && u.type === 'villager').length;
-  if (playerVillagers <= 0) {
+  const playerVillagers = state.units.filter(
+    (u) => u.owner === 'player' && u.type === 'villager'
+  );
+  if (playerVillagers.length === 0) {
     return { foodGatherers: 0, woodGatherers: 0, stoneGatherers: 0, goldGatherers: 0 };
   }
-  const playerBuildings = state.buildings.filter((b) => b.owner === 'player');
-  const hasLumberCamp = playerBuildings.some((b) => b.type === 'lumber_camp');
-  const hasMine = playerBuildings.some((b) => b.type === 'mine');
-  if (!hasLumberCamp && !hasMine) {
-    return {
-      foodGatherers: playerVillagers,
-      woodGatherers: 0,
-      stoneGatherers: 0,
-      goldGatherers: 0,
-    };
+  const WORK_RADIUS = TILE_SIZE * 0.85; // close enough to be "on the node"
+  const isAtWork = (u: Unit): boolean => {
+    if (!u.workTarget) return false;
+    const dx = (u.position.x + 16) - u.workTarget.x;
+    const dy = (u.position.y + 16) - u.workTarget.y;
+    return Math.hypot(dx, dy) <= WORK_RADIUS;
+  };
+  // A villager actively working a resource is worth ~1.6 of an idle villager;
+  // idle villagers still trickle food (so unassigned families don't starve).
+  const ACTIVE_WEIGHT = 1.6;
+  const IDLE_FOOD_WEIGHT = 0.5;
+  let foodGatherers = 0;
+  let woodGatherers = 0;
+  let stoneGatherers = 0;
+  let goldGatherers = 0;
+  for (const u of playerVillagers) {
+    if (u.job === 'wood') {
+      woodGatherers += isAtWork(u) ? ACTIVE_WEIGHT : 1;
+    } else if (u.job === 'stone') {
+      stoneGatherers += isAtWork(u) ? ACTIVE_WEIGHT : 1;
+    } else if (u.job === 'gold') {
+      goldGatherers += isAtWork(u) ? ACTIVE_WEIGHT : 1;
+    } else if (u.job === 'food') {
+      foodGatherers += isAtWork(u) ? ACTIVE_WEIGHT : 1;
+    } else {
+      foodGatherers += IDLE_FOOD_WEIGHT;
+    }
   }
-  const woodGatherers = hasLumberCamp ? Math.max(1, Math.floor(playerVillagers * 0.35)) : 0;
-  const goldGatherers = hasMine ? Math.max(1, Math.floor(playerVillagers * 0.3)) : 0;
-  const stoneGatherers = hasMine ? Math.max(0, Math.floor(playerVillagers * 0.2)) : 0;
-  const assigned = woodGatherers + goldGatherers + stoneGatherers;
-  const foodGatherers = Math.max(0, playerVillagers - assigned);
   return { foodGatherers, woodGatherers, stoneGatherers, goldGatherers };
 }
 
@@ -225,6 +248,7 @@ type GameStore = GameState & {
   setRallyPoint: (buildingId: string, point: Position) => void;
   dealDamage: (attackerId: string, targetId: string) => void;
   commandMoveSelectedUnits: (x: number, y: number) => void;
+  clearVillagerJob: () => void;
   moveCamera: (dx: number, dy: number) => void;
   triggerCameraShake: (intensity: number, duration: number) => void;
   tickCameraShake: (dt: number) => void;
@@ -533,12 +557,65 @@ export const useGameStore = create<GameStore>((set) => ({
     }),
 
   commandMoveSelectedUnits: (x, y) =>
+    set((s) => {
+      // Resolve the terrain at the destination so a villager order can
+      // double as a "go work this resource" command — tap a forest tile
+      // to chop wood, a hill tile to mine, water-edge grass for food etc.
+      const tileAtDest = getTileAt(s.terrain, x, y);
+      // Snap work targets to the tile center so multiple villagers cluster
+      // cleanly on the same node instead of jittering on tap-pixel coords.
+      const tileCenter = tileAtDest
+        ? {
+            x: tileAtDest.x * TILE_SIZE + TILE_SIZE / 2,
+            y: tileAtDest.y * TILE_SIZE + TILE_SIZE / 2,
+          }
+        : null;
+      const inferJob = (unitType: Unit['type']): VillagerJob | undefined => {
+        if (unitType !== 'villager' || !tileAtDest) return undefined;
+        if (tileAtDest.type === 'forest') return 'wood';
+        if (tileAtDest.type === 'hill') {
+          // Alternate stone/gold by tile coords so multiple villagers on
+          // adjacent hill tiles end up doing different jobs.
+          return ((tileAtDest.x + tileAtDest.y) & 1) === 0 ? 'stone' : 'gold';
+        }
+        return undefined;
+      };
+      return {
+        units: s.units.map((u) => {
+          if (!(s.selectedIds.includes(u.id) && u.owner === 'player')) return u;
+          const path = findPath(u.position, { x, y }, s.terrain);
+          const job = inferJob(u.type);
+          const workTarget = job && tileCenter ? tileCenter : undefined;
+          if (path && path.length > 1) {
+            return {
+              ...u,
+              target: { x, y },
+              path,
+              pathIndex: 1,
+              job,
+              workTarget,
+            };
+          }
+          return {
+            ...u,
+            target: undefined,
+            path: undefined,
+            pathIndex: undefined,
+            job,
+            workTarget,
+          };
+        }),
+      };
+    }),
+
+  clearVillagerJob: () =>
     set((s) => ({
       units: s.units.map((u) => {
-        if (!(s.selectedIds.includes(u.id) && u.owner === 'player')) return u;
-        const path = findPath(u.position, { x, y }, s.terrain);
-        if (path && path.length > 1) return { ...u, target: { x, y }, path, pathIndex: 1 };
-        return { ...u, target: undefined, path: undefined, pathIndex: undefined };
+        if (!(s.selectedIds.includes(u.id) && u.owner === 'player' && u.type === 'villager')) {
+          return u;
+        }
+        if (u.job === undefined && u.workTarget === undefined) return u;
+        return { ...u, job: undefined, workTarget: undefined };
       }),
     })),
 
