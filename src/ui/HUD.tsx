@@ -1,8 +1,16 @@
+import { useEffect, useState } from 'react';
 import { useGameStore } from '../core/state';
 import { AGES, AGE_ORDER } from '../core/types';
 
 export function HUD({ onPause }: { onPause: () => void }) {
   const state = useGameStore();
+  // First-run controls hint: visible for ~9s on game start so the player
+  // knows tap = select, tap-empty = move, long-press = deselect.
+  const [showControlsHint, setShowControlsHint] = useState(true);
+  useEffect(() => {
+    const t = window.setTimeout(() => setShowControlsHint(false), 9000);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const currentAge = state.currentAge;
   const nextAgeIndex = AGE_ORDER.indexOf(currentAge) + 1;
@@ -94,6 +102,28 @@ export function HUD({ onPause }: { onPause: () => void }) {
           </div>
         )}
       </div>
+
+      {showControlsHint && (
+        <div
+          className="pointer-events-auto absolute bottom-32 sm:bottom-24 left-1/2 -translate-x-1/2 max-w-[92vw] rounded-lg bg-black/85 px-3 py-2 text-[11px] sm:text-xs text-white/95 border border-yellow-500/40 shadow-lg flex items-center gap-2"
+          role="status"
+        >
+          <span className="text-yellow-400 font-bold">Controls:</span>
+          <span>Tap unit to select</span>
+          <span className="text-white/40">|</span>
+          <span>Tap ground to move</span>
+          <span className="text-white/40">|</span>
+          <span>Long-press to deselect</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setShowControlsHint(false)}
+            className="ml-1 px-1.5 text-white/60 hover:text-white"
+          >
+            x
+          </button>
+        </div>
+      )}
 
       <div className="absolute top-2 right-2 rounded-lg bg-black/70 px-3 py-2 text-[10px] text-white/60 font-mono border border-white/10">
         <div>P:{playerUnitCount} E:{enemyUnitCount}</div>

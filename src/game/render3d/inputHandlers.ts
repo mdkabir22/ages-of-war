@@ -148,8 +148,18 @@ export function setup3DInputHandlers(
     const buildType = e.altKey ? 'mine' : e.shiftKey ? 'house' : null;
     if (buildType) {
       state.placeBuilding(gridX, gridY, buildType);
+      return;
     }
-    state.setSelectedIds([]);
+    // Left-click on empty ground with selected player units => issue a
+    // move order and KEEP selection (mirrors right-click for touch parity).
+    const hasOwnedSelection = state.selectedIds.some((id) =>
+      state.units.some((u) => u.id === id && u.owner === 'player')
+    );
+    if (hasOwnedSelection) {
+      state.commandMoveSelectedUnits(world.x, world.y);
+    } else {
+      state.setSelectedIds([]);
+    }
   };
 
   const handleTapSelection = (state: ReturnType<typeof useGameStore.getState>, worldX: number, worldY: number): boolean => {
@@ -164,16 +174,32 @@ export function setup3DInputHandlers(
       state.selectUnit(hitBuilding.id);
       return true;
     }
-    const hitUnit = state.units.find((u) => {
+    // Larger tap target on units: they look small on phones with the wide
+    // cinematic camera, so a generous radius makes single-finger selection
+    // reliable. Player units take priority over enemies when they overlap.
+    const TAP_RADIUS = 26;
+    const candidates = state.units.filter((u) => {
       const cx = u.position.x + 16;
       const cy = u.position.y + 16;
-      return Math.abs(worldX - cx) <= 14 && Math.abs(worldY - cy) <= 14;
+      return Math.abs(worldX - cx) <= TAP_RADIUS && Math.abs(worldY - cy) <= TAP_RADIUS;
     });
-    if (hitUnit) {
-      state.selectUnit(hitUnit.id);
-      return true;
+    if (candidates.length === 0) return false;
+    const ownedFirst = candidates.find((u) => u.owner === 'player') ?? candidates[0];
+    state.selectUnit(ownedFirst.id);
+    return true;
+  };
+
+  // Long-press timer & state. A held tap (no significant movement, ~520ms)
+  // acts as the "deselect everything" gesture on mobile, since tap-to-move
+  // now keeps selection sticky for chained orders.
+  const longPressMs = 520;
+  let longPressTimer: number | null = null;
+  let longPressFired = false;
+  const clearLongPress = () => {
+    if (longPressTimer !== null) {
+      window.clearTimeout(longPressTimer);
+      longPressTimer = null;
     }
-    return false;
   };
 
   const handleTouchStart = (e: TouchEvent) => {
@@ -184,6 +210,19 @@ export function setup3DInputHandlers(
     touchMoved = false;
     touchLastX = t.clientX;
     touchLastY = t.clientY;
+    longPressFired = false;
+    clearLongPress();
+    longPressTimer = window.setTimeout(() => {
+      // Fire long-press only if the finger hasn't drifted (i.e. wasn't a pan).
+      if (touchMoved) return;
+      longPressFired = true;
+      useGameStore.getState().setSelectedIds([]);
+      touchIndicator = {
+        x: touchLastX - canvas.getBoundingClientRect().left,
+        y: touchLastY - canvas.getBoundingClientRect().top,
+        expiresAt: performance.now() + 320,
+      };
+    }, longPressMs);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -196,6 +235,7 @@ export function setup3DInputHandlers(
     touchLastY = t.clientY;
     if (Math.abs(dx) > touchMoveThreshold || Math.abs(dy) > touchMoveThreshold) {
       touchMoved = true;
+      clearLongPress();
     }
     panBy(-dx, -dy);
     e.preventDefault();
@@ -205,12 +245,19 @@ export function setup3DInputHandlers(
     if (pausedRef.current) return;
     const t = e.changedTouches[0];
     isTouchPanning = false;
-    if (!t || touchMoved) return;
+    clearLongPress();
+    if (!t || touchMoved || longPressFired) return;
     const world = groundPoint(t.clientX, t.clientY, canvas, cameraRef.current);
     if (!world) return;
     const state = useGameStore.getState();
+    // Tap on a unit/building => select (replaces previous selection).
     const handled = handleTapSelection(state, world.x, world.y);
-    if (handled) return;
+    if (handled) {
+      lastTapAtMs = performance.now();
+      lastTapX = t.clientX;
+      lastTapY = t.clientY;
+      return;
+    }
     const now = performance.now();
     const isDoubleTap =
       now - lastTapAtMs <= doubleTapWindowMs &&
@@ -218,11 +265,25 @@ export function setup3DInputHandlers(
     lastTapAtMs = now;
     lastTapX = t.clientX;
     lastTapY = t.clientY;
-    state.commandMoveSelectedUnits(world.x, world.y);
-    if (!isDoubleTap && !state.keepSelectionOnTap) {
+    // Tap on empty ground:
+    //   - With selected player units => issue a move order and KEEP selection
+    //     so the player can chain follow-up orders without re-tapping the unit.
+    //   - With nothing usefully selected => no-op (avoids accidental deselect).
+    //   - Double-tap empty ground always deselects (explicit clear gesture).
+    const hasOwnedSelection = state.selectedIds.some((id) =>
+      state.units.some((u) => u.id === id && u.owner === 'player')
+    );
+    if (hasOwnedSelection) {
+      state.commandMoveSelectedUnits(world.x, world.y);
+    }
+    if (isDoubleTap) {
       state.setSelectedIds([]);
     }
-    touchIndicator = { x: t.clientX - canvas.getBoundingClientRect().left, y: t.clientY - canvas.getBoundingClientRect().top, expiresAt: performance.now() + 260 };
+    touchIndicator = {
+      x: t.clientX - canvas.getBoundingClientRect().left,
+      y: t.clientY - canvas.getBoundingClientRect().top,
+      expiresAt: performance.now() + 260,
+    };
   };
 
   const handleContextMenu = (e: MouseEvent) => {
