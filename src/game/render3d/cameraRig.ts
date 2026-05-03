@@ -25,10 +25,11 @@ export function updateCameraRig(
   centerZ: number,
   dt: number
 ): void {
-  // Cinematic isometric-style angle: closer + lower so units have presence
-  // while still seeing a wide swath of the battlefield.
-  state.desiredCam.set(centerX, 520, centerZ + 540);
-  state.desiredLook.set(centerX, 0, centerZ - 40);
+  // Cinematic isometric framing for the larger 2400x1600 paradise map —
+  // higher altitude and pulled back so the river, forest, mountains, and
+  // both bases stay readable in one shot.
+  state.desiredCam.set(centerX, 980, centerZ + 1020);
+  state.desiredLook.set(centerX, 0, centerZ - 80);
   const k = Math.min(1, dt * 7.5);
 
   if (!state.cameraSmoothedReady) {

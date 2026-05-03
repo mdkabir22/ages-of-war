@@ -142,8 +142,8 @@ function enemyTrainDecision(state: GameState, plan: GameState['aiPlan']): Unit[]
     if (!canAfford(state.enemyEconomy.resources, cost)) continue;
     state.enemyEconomy.resources = spendResources(state.enemyEconomy.resources, cost);
     const stats = getUnitStatsForAge(state.currentAge, unitType);
-    const spawnX = enemyTC ? enemyTC.position.x + 40 + Math.random() * 120 : 1000;
-    const spawnY = enemyTC ? enemyTC.position.y + Math.random() * 80 : 120 + Math.random() * 200;
+    const spawnX = enemyTC ? enemyTC.position.x + 40 + Math.random() * 120 : 1900;
+    const spawnY = enemyTC ? enemyTC.position.y + Math.random() * 80 : 1180;
     const startPos = { x: spawnX, y: spawnY };
     const target = nearestPlayerTarget(state, startPos);
     newUnits.push({
@@ -191,12 +191,17 @@ export function startEnemyAI(
       if (aliveVillagers.length < desiredVillagers) {
         const needed = desiredVillagers - aliveVillagers.length;
         const stats = getUnitStatsForAge(state.currentAge, 'villager');
+        // Spawn replacement villagers at the enemy town center if alive,
+        // otherwise fall back to a sane default near the enemy spawn corner.
+        const enemyTC = state.buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
+        const baseX = enemyTC ? enemyTC.position.x : 1900;
+        const baseY = enemyTC ? enemyTC.position.y : 1180;
         for (let i = 0; i < needed; i++) {
           nextUnits.push({
             id: crypto.randomUUID(),
             type: 'villager',
-            position: { x: 980 + Math.random() * 120, y: 120 + Math.random() * 180 },
-            target: { x: 900 + Math.random() * 150, y: 140 + Math.random() * 220 },
+            position: { x: baseX + 40 + Math.random() * 120, y: baseY + 30 + Math.random() * 120 },
+            target: { x: baseX + 80 + Math.random() * 140, y: baseY + 60 + Math.random() * 160 },
             owner: 'enemy',
             hp: stats.hp,
             maxHp: stats.hp,
@@ -222,13 +227,20 @@ export function startEnemyAI(
       let nextBuildings = [...state.buildings];
       const expectedEnemyBuildings = ecoState.enemyEconomy.buildings.filter((b) => b !== 'townCenter');
       const existingEnemyTypes = new Set(nextBuildings.filter((b) => b.owner === 'enemy').map((b) => b.type));
+      const enemyTCForBuild = state.buildings.find((b) => b.owner === 'enemy' && b.type === 'townCenter');
+      const enemyBaseX = enemyTCForBuild ? enemyTCForBuild.position.x : 1900;
+      const enemyBaseY = enemyTCForBuild ? enemyTCForBuild.position.y : 1180;
       for (const type of expectedEnemyBuildings) {
         if (existingEnemyTypes.has(type)) continue;
         nextBuildings.push({
           id: crypto.randomUUID(),
           type,
           owner: 'enemy',
-          position: { x: 960 + Math.random() * 220, y: 140 + Math.random() * 240 },
+          // Cluster new enemy buildings around the enemy town center.
+          position: {
+            x: enemyBaseX - 80 + Math.random() * 200,
+            y: enemyBaseY - 60 + Math.random() * 180,
+          },
           hp: 140,
           maxHp: 140,
         });

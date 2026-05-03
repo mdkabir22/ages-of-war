@@ -8,7 +8,12 @@ import { start3DGameLoop } from './render3d/gameLoop';
 import { setup3DInputHandlers } from './render3d/inputHandlers';
 import { sync3DMeshes } from './render3d/meshSync';
 import { createPostProcessing, type PostProcessingState } from './render3d/postprocessing';
-import { buildForestTrees, buildTerrainFromMap, buildWaterSurface } from './render3d/terrainBuilders';
+import {
+  buildForestTrees,
+  buildMountainRange,
+  buildTerrainFromMap,
+  buildWaterSurface,
+} from './render3d/terrainBuilders';
 import {
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_WIDTH,
@@ -51,10 +56,12 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     const overlayCtx = overlayCanvas?.getContext('2d');
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x64748b);
-    scene.fog = new THREE.Fog(0x64748b, 900, 5200);
+    // Sky-like gradient background + warmer distance fog for a paradise vibe.
+    scene.background = new THREE.Color(0x9bcfe8);
+    scene.fog = new THREE.Fog(0x9bcfe8, 1600, 7800);
 
-    const hemi = new THREE.HemisphereLight(0xc9e8ff, 0x334155, 0.42);
+    // Warmer hemisphere light: sky from above, soft green ground bounce.
+    const hemi = new THREE.HemisphereLight(0xddeeff, 0x4d6b3a, 0.55);
     scene.add(hemi);
 
     const camera = new THREE.PerspectiveCamera(48, 1, 2, 12000);
@@ -63,15 +70,21 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
     const amb = new THREE.AmbientLight(0xb4c6e7, 0.36);
     scene.add(amb);
     const sun = new THREE.DirectionalLight(0xfff5e0, 1.05);
-    sun.position.set(420, 900, 280);
+    // Position the sun relative to the (now larger) world center so shadows
+    // fall consistently across the entire battlefield.
+    sun.position.set(DEFAULT_MAP_WIDTH / 2 + 600, 1400, DEFAULT_MAP_HEIGHT / 2 - 400);
+    sun.target.position.set(DEFAULT_MAP_WIDTH / 2, 0, DEFAULT_MAP_HEIGHT / 2);
+    scene.add(sun.target);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.near = 100;
-    sun.shadow.camera.far = 3200;
-    sun.shadow.camera.left = -1400;
-    sun.shadow.camera.right = 1400;
-    sun.shadow.camera.top = 1400;
-    sun.shadow.camera.bottom = -1400;
+    sun.shadow.camera.far = 5000;
+    // Expanded shadow frustum to cover the whole 2400x1600 map.
+    const shadowExtent = Math.max(DEFAULT_MAP_WIDTH, DEFAULT_MAP_HEIGHT) * 0.85;
+    sun.shadow.camera.left = -shadowExtent;
+    sun.shadow.camera.right = shadowExtent;
+    sun.shadow.camera.top = shadowExtent;
+    sun.shadow.camera.bottom = -shadowExtent;
     scene.add(sun);
 
     const terrain = useGameStore.getState().terrain;
@@ -80,6 +93,9 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
 
     const forestBuilt = buildForestTrees(terrain);
     if (forestBuilt) scene.add(forestBuilt.mesh);
+
+    const mountainBuilt = buildMountainRange(terrain);
+    if (mountainBuilt) scene.add(mountainBuilt.mesh);
 
     const waterBuilt = buildWaterSurface(terrain);
     if (waterBuilt) scene.add(waterBuilt.mesh);
@@ -230,6 +246,10 @@ export function GameCanvas3D({ paused = false }: GameCanvas3DProps) {
       if (forestBuilt) {
         scene.remove(forestBuilt.mesh);
         forestBuilt.dispose();
+      }
+      if (mountainBuilt) {
+        scene.remove(mountainBuilt.mesh);
+        mountainBuilt.dispose();
       }
       if (waterBuilt) {
         scene.remove(waterBuilt.mesh);

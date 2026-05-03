@@ -241,6 +241,14 @@ type GameStore = GameState & {
 const initialSfxVolume = readSfxVolumePreference();
 audio.setVolume(initialSfxVolume);
 
+// Starting positions in the new larger map (2400x1600). Both players begin
+// in the south band's grass safe-zones so the open battlefield + river +
+// forest + mountains form a natural backdrop.
+const PLAYER_BASE_X = 400;
+const PLAYER_BASE_Y = 1180;
+const ENEMY_BASE_X = DEFAULT_MAP_WIDTH - 480;
+const ENEMY_BASE_Y = 1180;
+
 export const useGameStore = create<GameStore>((set) => ({
   currentAge: 'stone',
   resources: { food: 150, wood: 150, stone: 50, gold: 50 },
@@ -248,7 +256,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'villager',
-      position: { x: 140, y: 120 },
+      position: { x: PLAYER_BASE_X + 100, y: PLAYER_BASE_Y + 70 },
       owner: 'player',
       hp: getUnitCombatStats('stone', 'villager').hp,
       maxHp: getUnitCombatStats('stone', 'villager').hp,
@@ -261,7 +269,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'villager',
-      position: { x: 180, y: 120 },
+      position: { x: PLAYER_BASE_X + 160, y: PLAYER_BASE_Y + 100 },
       owner: 'player',
       hp: getUnitCombatStats('stone', 'villager').hp,
       maxHp: getUnitCombatStats('stone', 'villager').hp,
@@ -274,7 +282,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'villager',
-      position: { x: 160, y: 160 },
+      position: { x: PLAYER_BASE_X + 60, y: PLAYER_BASE_Y + 140 },
       owner: 'player',
       hp: getUnitCombatStats('stone', 'villager').hp,
       maxHp: getUnitCombatStats('stone', 'villager').hp,
@@ -289,7 +297,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'villager',
-      position: { x: DEFAULT_MAP_WIDTH - 220, y: 140 },
+      position: { x: ENEMY_BASE_X + 60, y: ENEMY_BASE_Y + 80 },
       owner: 'enemy',
       hp: getUnitCombatStats('stone', 'villager').hp,
       maxHp: getUnitCombatStats('stone', 'villager').hp,
@@ -302,7 +310,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'villager',
-      position: { x: DEFAULT_MAP_WIDTH - 180, y: 180 },
+      position: { x: ENEMY_BASE_X + 120, y: ENEMY_BASE_Y + 130 },
       owner: 'enemy',
       hp: getUnitCombatStats('stone', 'villager').hp,
       maxHp: getUnitCombatStats('stone', 'villager').hp,
@@ -315,7 +323,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: crypto.randomUUID(),
       type: 'warrior',
-      position: { x: DEFAULT_MAP_WIDTH - 260, y: 220 },
+      position: { x: ENEMY_BASE_X + 30, y: ENEMY_BASE_Y + 170 },
       owner: 'enemy',
       hp: getUnitCombatStats('stone', 'warrior').hp,
       maxHp: getUnitCombatStats('stone', 'warrior').hp,
@@ -330,7 +338,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: INITIAL_TOWN_CENTER_ID,
       type: 'townCenter',
-      position: { x: 80, y: 80 },
+      position: { x: PLAYER_BASE_X, y: PLAYER_BASE_Y },
       owner: 'player',
       hp: getBuildingMaxHp('townCenter'),
       maxHp: getBuildingMaxHp('townCenter'),
@@ -338,7 +346,7 @@ export const useGameStore = create<GameStore>((set) => ({
     {
       id: ENEMY_TOWN_CENTER_ID,
       type: 'townCenter',
-      position: { x: DEFAULT_MAP_WIDTH - 160, y: 80 },
+      position: { x: ENEMY_BASE_X, y: ENEMY_BASE_Y },
       owner: 'enemy',
       hp: getBuildingMaxHp('townCenter'),
       maxHp: getBuildingMaxHp('townCenter'),

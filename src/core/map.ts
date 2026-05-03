@@ -23,8 +23,12 @@ export interface GameMap {
   tiles: TerrainTile[][];
 }
 
-export const DEFAULT_MAP_WIDTH = 1280;
-export const DEFAULT_MAP_HEIGHT = 720;
+// 3x larger battlefield for a "paradise" feel — wide enough for distinct
+// regional biomes (river to the north, forest west, mountains east, open
+// grassland in the center+south). Tile granularity stays at 40 so the
+// pathfinder grid is 60x40 = 2400 cells (still fast).
+export const DEFAULT_MAP_WIDTH = 2400;
+export const DEFAULT_MAP_HEIGHT = 1600;
 export const TILE_SIZE = 40;
 
 export const LANE_Y_RATIOS = [0.28, 0.5, 0.72] as const;
@@ -61,36 +65,101 @@ export const TERRAIN_EFFECTS: Record<TerrainType, TerrainEffect> = {
 };
 
 export const TERRAIN_COLORS: Record<TerrainType, string[]> = {
-  grass: ['#7bc45a', '#8fd470', '#6ab54a', '#9ee085'],
-  forest: ['#4a8f3d', '#5aa84e', '#3d7a33', '#6bc25a'],
-  hill: ['#c4b090', '#d4c0a0', '#b8a080', '#e0d0b0'],
-  water: ['#5ba0d0', '#6cb8e0', '#4a90c0', '#7ec8f0'],
+  // Lush, vibrant palette for the "janat" look — saturated grass, deep
+  // forest greens, warm earthy mountains, vivid river blues.
+  grass: ['#7fd066', '#94de7c', '#6cc857', '#a5e890'],
+  forest: ['#3d8a36', '#4ea34a', '#306e2c', '#5fbb56'],
+  hill: ['#a89578', '#b8a484', '#998568', '#c8b698'],
+  water: ['#2682b6', '#3a98c8', '#1f72a8', '#54add6'],
 };
 
 export function getLaneYPositions(height: number): number[] {
   return LANE_Y_RATIOS.map((ratio) => ratio * height);
 }
 
+/**
+ * Deterministic 1D pseudo-noise for shaping biome edges with wavy borders
+ * instead of straight columns/rows. Returns a value roughly in [-1, 1].
+ */
+function wavyNoise(x: number, seed: number): number {
+  return (
+    Math.sin(x * 0.42 + seed * 1.7) * 0.55 +
+    Math.sin(x * 0.18 + seed * 0.4) * 0.35 +
+    Math.sin(x * 0.07 + seed * 3.1) * 0.18
+  );
+}
+
+/**
+ * Biome-aware map generator.
+ *
+ * Layout (looking top-down at the world):
+ *   - North band:  meandering river (water).
+ *   - West region: dense forest (with grass clearings).
+ *   - East region: mountain range (hills) with stone outcrops.
+ *   - Center & south: open grassland — the main battlefield.
+ */
 export function generateMap(width: number, height: number): TerrainTile[][] {
   const map: TerrainTile[][] = [];
+
+  const forestEdge = Math.floor(width * 0.28);
+  const mountainEdge = Math.floor(width * 0.72);
+  const riverCenterRow = Math.floor(height * 0.12);
+  const riverHalfBand = Math.max(2, Math.floor(height * 0.05));
+
   for (let y = 0; y < height; y++) {
     const row: TerrainTile[] = [];
     for (let x = 0; x < width; x++) {
-      const noise = Math.random();
-      const nearEdge = x < 4 || y < 4 || x >= width - 4 || y >= height - 4;
-      let type: TerrainType;
-      if (nearEdge && noise < 0.2) type = 'water';
-      else if (noise < 0.25) type = 'forest';
-      else if (noise < 0.35) type = 'hill';
-      else type = 'grass';
-      if ((x < 5 && y < 5) || (x >= width - 5 && y < 5)) {
+      let type: TerrainType = 'grass';
+
+      // 1. North river — meanders across the top using wavy noise.
+      const riverWave = wavyNoise(x, 7) * 2.4;
+      const riverDistance = Math.abs(y - (riverCenterRow + riverWave));
+      if (riverDistance <= riverHalfBand) {
+        type = 'water';
+      }
+
+      // 2. West dense forest — wavy western edge.
+      const forestWave = wavyNoise(y, 3) * 4;
+      const forestRight = forestEdge + forestWave;
+      if (type === 'grass' && x < forestRight) {
+        const depth = forestRight - x;
+        const noise = (Math.sin(x * 1.3 + y * 0.7) + 1) * 0.5;
+        if (depth > 5 || noise < 0.78) type = 'forest';
+      }
+
+      // 3. East mountain range — wavy eastern edge.
+      const mountainWave = wavyNoise(y + 11, 5) * 3.5;
+      const mountainLeft = mountainEdge + mountainWave;
+      if (type === 'grass' && x > mountainLeft) {
+        const depth = x - mountainLeft;
+        const noise = (Math.sin(x * 0.9 + y * 1.1) + 1) * 0.5;
+        if (depth > 4 || noise < 0.78) type = 'hill';
+      }
+
+      // 4. Sprinkle sparse hills/forest patches in the central battlefield
+      //    so it doesn't feel sterile, but keep it walkable.
+      if (type === 'grass') {
+        const sprinkle =
+          (Math.sin(x * 2.1 + y * 1.7) + Math.sin(x * 0.6 - y * 0.9)) * 0.5;
+        if (sprinkle > 0.78) type = 'hill';
+        else if (sprinkle < -0.85) type = 'forest';
+      }
+
+      // 5. Always-grass safe zones near each player's expected starting base
+      //    so the engine has a guaranteed place to spawn buildings/units.
+      const inPlayerSpawn =
+        x >= 8 && x <= 22 && y >= height - 18 && y <= height - 4;
+      const inEnemySpawn =
+        x >= width - 22 && x <= width - 8 && y >= height - 18 && y <= height - 4;
+      if (inPlayerSpawn || inEnemySpawn) {
         type = 'grass';
       }
+
       row.push({
         x,
         y,
         type,
-        variant: Math.floor(Math.random() * 4),
+        variant: (x * 31 + y * 7) % 4,
       });
     }
     map.push(row);

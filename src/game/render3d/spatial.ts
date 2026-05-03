@@ -51,11 +51,13 @@ export function terrainHeightAt(wx: number, wz: number, terrain: TerrainTile[][]
   if (ty < 0 || tx < 0 || ty >= terrain.length || !terrain[ty] || tx >= terrain[ty].length) return 0;
   switch (terrain[ty][tx].type) {
     case 'hill':
-      return 8;
+      // Dramatic mountain height — small per-tile variance gives a rocky
+      // skyline instead of a flat plateau.
+      return 26 + ((tx * 13 + ty * 7) % 5) * 2.5;
     case 'water':
-      return -1.5;
+      return -4.5;
     case 'forest':
-      return 1.5;
+      return 2.2;
     default:
       return 0.35;
   }
