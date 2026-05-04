@@ -96,6 +96,7 @@ function getUnitCombatStats(age: Age, type: Unit['type']) {
 
 export function getUnitTrainingSpec(age: Age, type: Unit['type']) {
   const ageTier = AGE_ORDER.indexOf(age);
+  
   if (type === 'villager') {
     return {
       foodCost: 45 + ageTier * 5,
@@ -103,13 +104,40 @@ export function getUnitTrainingSpec(age: Age, type: Unit['type']) {
       totalTime: Math.max(1.7, 2.2 - ageTier * 0.1),
     };
   }
+  
   if (type === 'warrior') {
     return {
-      foodCost: 20 + ageTier * 8,
-      goldCost: 40 + ageTier * 8,
+      foodCost: 60 + ageTier * 8,
+      goldCost: 20 + ageTier * 10,
       totalTime: 3.1 + ageTier * 0.15,
     };
   }
+  
+  if (type === 'archer') {
+    return {
+      foodCost: 70 + ageTier * 10,
+      goldCost: 30 + ageTier * 12,
+      totalTime: 3.3 + ageTier * 0.2,
+    };
+  }
+  
+  if (type === 'spearman') {
+    return {
+      foodCost: 65 + ageTier * 9,
+      goldCost: 25 + ageTier * 11,
+      totalTime: 3.2 + ageTier * 0.18,
+    };
+  }
+  
+  if (type === 'cavalry') {
+    return {
+      foodCost: 80 + ageTier * 12,
+      goldCost: 40 + ageTier * 15,
+      totalTime: 3.8 + ageTier * 0.25,
+    };
+  }
+  
+  // Fallback (should never reach)
   return {
     foodCost: 60 + ageTier * 10,
     goldCost: 20 + ageTier * 10,
