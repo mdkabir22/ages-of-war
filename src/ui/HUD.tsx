@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useGameStore } from '../core/state';
 import { AGES, AGE_ORDER } from '../core/types';
+import { getUnitTrainingSpec } from '../core/state';
 
 export function HUD({ onPause }: { onPause: () => void }) {
   const state = useGameStore();
@@ -53,15 +54,20 @@ export function HUD({ onPause }: { onPause: () => void }) {
     ? Object.entries(nextAgeCost).every(([res, amount]) => state.resources[res as keyof typeof state.resources] >= amount)
     : false;
 
-  const villagerFoodCost = 45 + ageTier * 5;
-  const warriorFoodCost = 60 + ageTier * 10;
-  const warriorGoldCost = 20 + ageTier * 10;
-  const canTrainWarrior =
-    state.resources.food >= warriorFoodCost &&
-    state.resources.gold >= warriorGoldCost &&
-    populationUsed < populationCap;
-
   const resources = state.resources;
+
+  // Training specs for all unit types
+  const villagerSpec = getUnitTrainingSpec(state.currentAge, 'villager');
+  const warriorSpec = getUnitTrainingSpec(state.currentAge, 'warrior');
+  const archerSpec = getUnitTrainingSpec(state.currentAge, 'archer');
+  const spearmanSpec = getUnitTrainingSpec(state.currentAge, 'spearman');
+  const cavalrySpec = getUnitTrainingSpec(state.currentAge, 'cavalry');
+
+  const canTrainVillager = state.resources.food >= villagerSpec.foodCost && populationUsed < populationCap;
+  const canTrainWarrior = state.resources.food >= warriorSpec.foodCost && state.resources.gold >= warriorSpec.goldCost && populationUsed < populationCap;
+  const canTrainArcher = state.resources.food >= archerSpec.foodCost && state.resources.gold >= archerSpec.goldCost && populationUsed < populationCap;
+  const canTrainSpearman = state.resources.food >= spearmanSpec.foodCost && state.resources.gold >= spearmanSpec.goldCost && populationUsed < populationCap;
+  const canTrainCavalry = state.resources.food >= cavalrySpec.foodCost && state.resources.gold >= cavalrySpec.goldCost && populationUsed < populationCap;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
@@ -119,7 +125,7 @@ export function HUD({ onPause }: { onPause: () => void }) {
 
       {showControlsHint && (
         <div
-          className="pointer-events-auto absolute bottom-32 sm:bottom-24 left-1/2 -translate-x-1/2 max-w-[92vw] rounded-lg bg-black/85 px-3 py-2 text-[11px] sm:text-xs text-white/95 border border-yellow-500/40 shadow-lg flex items-center gap-2"
+          className="pointer-events-auto absolute bottom-32 sm:bottom-24 left-1/2 -translate-x-1/2 max-w-[92vw] rounded-lg bg-black/85 px-3 py-2 text-[11px] sm:text-xs text-white/95 border border-white/20"
           role="status"
         >
           <span className="text-yellow-400 font-bold">Controls:</span>
@@ -196,7 +202,7 @@ export function HUD({ onPause }: { onPause: () => void }) {
       )}
 
       {selectedBuilding && (
-        <div className="pointer-events-auto absolute bottom-4 right-4 w-56 rounded-xl bg-black/85 p-3 text-white border border-white/10">
+        <div className="pointer-events-auto absolute bottom-4 right-4 w-80 rounded-xl bg-black/85 p-3 text-white border border-white/10">
           <div className="text-sm font-bold text-blue-300 capitalize mb-2">
             {selectedBuilding.type.replace(/_/g, ' ')}
           </div>
@@ -214,19 +220,54 @@ export function HUD({ onPause }: { onPause: () => void }) {
 
           {selectedBuilding.type === 'barracks' || selectedBuilding.type === 'townCenter' ? (
             <div className="space-y-2">
+              {/* Villager */}
               <button
                 onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'villager')}
-                disabled={populationUsed >= populationCap || state.resources.food < villagerFoodCost}
+                disabled={!canTrainVillager}
                 className="w-full rounded bg-green-700 hover:bg-green-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-green-500/30"
+                title={`Cost: ${villagerSpec.foodCost}F`}
               >
-                Train Villager ({villagerFoodCost}F)
+                👨‍🌾 Villager ({villagerSpec.foodCost}F)
               </button>
+
+              {/* Warrior */}
               <button
                 onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'warrior')}
                 disabled={!canTrainWarrior}
                 className="w-full rounded bg-red-700 hover:bg-red-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-red-500/30"
+                title={`Cost: ${warriorSpec.foodCost}F ${warriorSpec.goldCost}G`}
               >
-                Train Warrior ({warriorFoodCost}F {warriorGoldCost}G)
+                ⚔️ Warrior ({warriorSpec.foodCost}F {warriorSpec.goldCost}G)
+              </button>
+
+              {/* Archer */}
+              <button
+                onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'archer')}
+                disabled={!canTrainArcher}
+                className="w-full rounded bg-amber-700 hover:bg-amber-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-amber-500/30"
+                title={`Cost: ${archerSpec.foodCost}F ${archerSpec.goldCost}G`}
+              >
+                🏹 Archer ({archerSpec.foodCost}F {archerSpec.goldCost}G)
+              </button>
+
+              {/* Spearman */}
+              <button
+                onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'spearman')}
+                disabled={!canTrainSpearman}
+                className="w-full rounded bg-orange-700 hover:bg-orange-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-orange-500/30"
+                title={`Cost: ${spearmanSpec.foodCost}F ${spearmanSpec.goldCost}G`}
+              >
+                🔱 Spearman ({spearmanSpec.foodCost}F {spearmanSpec.goldCost}G)
+              </button>
+
+              {/* Cavalry */}
+              <button
+                onClick={() => useGameStore.getState().spawnUnit(selectedBuilding.id, 'cavalry')}
+                disabled={!canTrainCavalry}
+                className="w-full rounded bg-purple-700 hover:bg-purple-600 disabled:bg-gray-800 disabled:text-gray-500 px-2 py-1.5 text-xs font-bold border border-purple-500/30"
+                title={`Cost: ${cavalrySpec.foodCost}F ${cavalrySpec.goldCost}G`}
+              >
+                🐴 Cavalry ({cavalrySpec.foodCost}F {cavalrySpec.goldCost}G)
               </button>
             </div>
           ) : null}
